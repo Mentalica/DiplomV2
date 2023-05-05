@@ -5,9 +5,10 @@ import threading
 
 
 def main():
-    server = Server()
-    server.start()
-    server.accept_connection()
+    client1 = Client()
+    client1.connect_to_server()
+    print("DONE")
+    client1.run()
 
 
 if __name__ == '__main__':

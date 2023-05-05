@@ -56,13 +56,15 @@ class Server:
         while True:
             # Wait for a client to connect
             client_socket, client_address = self._tcp_server_socket.accept()
-            print(f"[OK] {SERVER} Connection from {client_address} has been established! Client ID - {client_id}")
+            print(f"[OK] {SERVER} TCP connection from {client_address} has been established! Client ID - {client_id}")
 
             # Test UDP conn
 
             msg = Message.receive_message_udp(self._udp_server_socket)
             if int(msg[0]) == MessageType.ECHO and msg[1].decode() == "OK":
-                print(f"[OK] {SERVER} Client UDP checked")
+                # print(f"[OK] {SERVER} Client UDP checked")
+                # print(f"[OK] {SERVER} UDP connection from ({msg[1]}, {msg[2]}) has been established! Client ID - {client_id}")
+                print(f"[OK] {SERVER} UDP connection from {msg[2]} has been established! Client ID - {client_id}")
             else:
                 print(f"[ERROR] {SERVER}: {msg[0]}\n{type(msg[0])}")
             Message.send_message_udp(self._udp_server_socket, MessageType.ECHO, b"OK", client_address[0], msg[2][1])
@@ -77,33 +79,30 @@ class Server:
             client_thread.start()
 
     def handle_client(self, client: User):
-        # while True:
-        #     # Принимаем сообщение от клиента
-        #     message_type, message_data = Message.receive_message_tcp(client.get_tcp_socket())
-        #     print(f"{SERVER}: msg_type: {message_type}\nmsg_data: {message_data}")
-        #     # Обрабатываем сообщение в зависимости от его типа
-        #     if message_type == MessageType.ECHO:
-        #         # Обработка command-сообщения
-        #         Message.send_message_tcp(client.get_tcp_socket())
-        #     elif message_type == MessageType.CHAT:
-        #         # Обработка чат-сообщения
-        #         ...
-        #     elif message_type == MessageType.VIDEO:
-        #         # Обработка видео-сообщения
-        #         ...
-        #     elif message_type == MessageType.AUDIO:
-        #         # Обработка аудио-сообщения
-        #         ...
-        #     elif message_type == MessageType.SCREENSHARE:
-        #         # Обработка сообщения демонстрации экрана
-        #         ...
-        #     else:
-        #         # Неизвестный тип сообщения
-        #         ...
-        message_type, message_data = Message.receive_message_tcp(client.get_tcp_socket())
-        print(f"{SERVER}: msg_type: {message_type}\nmsg_data: {message_data}")
-
-
+        while True:
+            # Принимаем сообщение от клиента
+            message_type, message_data = Message.receive_message_tcp(client.get_tcp_socket())
+            print(f"[RECEIVED] {SERVER}: msg_type - {message_type}; client ID - {client.get_user_id()}"
+                  f"\n\tmsg_data: {message_data}")
+            # Обрабатываем сообщение в зависимости от его типа
+            if message_type == MessageType.ECHO:
+                # Обработка command-сообщения
+                Message.send_message_tcp(client.get_tcp_socket(), MessageType.ECHO, b"Hello there")
+            elif message_type == MessageType.CHAT:
+                # Обработка чат-сообщения
+                ...
+            elif message_type == MessageType.VIDEO:
+                # Обработка видео-сообщения
+                ...
+            elif message_type == MessageType.AUDIO:
+                # Обработка аудио-сообщения
+                ...
+            elif message_type == MessageType.SCREENSHARE:
+                # Обработка сообщения демонстрации экрана
+                ...
+            else:
+                # Неизвестный тип сообщения
+                ...
 
     def create_room(self):
         pass

@@ -27,3 +27,6 @@ class User:
 
     def get_address(self):
         return self._address
+
+    def get_user_id(self):
+        return self._user_id

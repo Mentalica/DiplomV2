@@ -1,6 +1,9 @@
 import socket
+import time
+
 from message import Message
 from messageType import MessageType
+import threading
 from consts import *
 
 
@@ -38,12 +41,35 @@ class Client:
 
     def close_udp_client_connection(self):
         self._udp_client_socket.close()
-        del self._udp_client_socket
         print(f"[OK] {CLIENT} UDP client disconnected")
 
     def close_tcp_client_connection(self):
         self._tcp_client_socket.close()
         print(f"[OK] {CLIENT} TCP client disconnected")
+
+    def run(self):
+        threading.Thread(target=self.send_command).start()
+        threading.Thread(target=self.handle_message).start()
+        # self.send_message()
+        # self.handle_message()
+
+    def send_command(self):
+        while True:
+            time.sleep(0.1)
+            msg = input(f"[ACTION] {CLIENT}: MSG - ")
+            # msg = input("[ACTION]: MSG - ")
+            Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, msg.encode('utf-8'))
+
+    def handle_message(self):
+        while True:
+            message_type, message_data = Message.receive_message_tcp(self._tcp_client_socket)
+            # вызываем обработчик для полученного сообщения
+            if int(message_type) == MessageType.ECHO:
+                print(f"[RECEIVED] {CLIENT}: Message - {message_data}")
+            # handle_received_message(message_type, message_data)
+
+    def send_audio(self):
+        pass
 
     def connect(self):
         pass

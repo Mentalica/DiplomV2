@@ -44,7 +44,7 @@ class Message:
         # Упаковка длины сообщения и его типа
         message_type = message_type
         message_length = len(message_data)
-        header = struct.pack('!II', message_type, message_length)
+        header = struct.pack('!II', message_length, message_type)
 
         # Отправка заголовка и данных
         sock.sendall(header + message_data)
