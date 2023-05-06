@@ -1,9 +1,15 @@
 import socket
 import struct
 import threading
+import zlib
+
+import pyaudio
+
 from messageType import MessageType
 from message import Message
 from networkManager import NetworkManager
+from audioDecoder import AudioDecoder
+from audioRecorder import AudioRecorder
 from consts import *
 from user import User
 
@@ -84,6 +90,7 @@ class Server:
             message_type, message_data = Message.receive_message_tcp(client.get_tcp_socket())
             print(f"[RECEIVED] {SERVER}: msg_type - {message_type}; client ID - {client.get_user_id()}"
                   f"\n\tmsg_data: {message_data}")
+
             # Обрабатываем сообщение в зависимости от его типа
             if message_type == MessageType.ECHO:
                 # Обработка command-сообщения
@@ -96,13 +103,27 @@ class Server:
                 ...
             elif message_type == MessageType.AUDIO:
                 # Обработка аудио-сообщения
-                ...
+                self.audio_handler()
             elif message_type == MessageType.SCREENSHARE:
                 # Обработка сообщения демонстрации экрана
                 ...
             else:
                 # Неизвестный тип сообщения
                 ...
+
+    def audio_handler(self):
+        audio = AudioRecorder()
+        audio.out_stream_audio()
+        while True:
+            frame = Message.receive_message_udp(self._udp_server_socket)
+            print(f"[AUDIO_HANDLER] {SERVER}: {frame}")
+            data = zlib.decompress(frame[1])
+            # Проигрываем декодированное аудио
+            audio.stream.write(data)
+
+        # Закрываем поток и PyAudio
+        audio.close()
+
 
     def create_room(self):
         pass

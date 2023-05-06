@@ -1,9 +1,13 @@
 import socket
 import time
+import threading
+import zlib
 
+import pyaudio
 from message import Message
 from messageType import MessageType
-import threading
+from audioEncoder import AudioEncoder
+from audioRecorder import AudioRecorder
 from consts import *
 
 
@@ -55,10 +59,17 @@ class Client:
 
     def send_command(self):
         while True:
-            time.sleep(0.1)
-            msg = input(f"[ACTION] {CLIENT}: MSG - ")
+            time.sleep(0.1) # STILL I HAVENT GUI
+            cmd = input(f"[ACTION-INPUT] {CLIENT}: Command number - ")
+            if int(cmd) == MessageType.AUDIO:
+                Message.send_message_tcp(self._tcp_client_socket, MessageType.AUDIO, "".encode('utf-8'))
+                print(f"[SEND_CMD] {CLIENT}: SUCCESS")
+                self.handle_audio()
+                threading.Thread(target=self.send_audio)
+
+                print(f"[SEND_CMD] {CLIENT}: NOT SUCCESS")
             # msg = input("[ACTION]: MSG - ")
-            Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, msg.encode('utf-8'))
+            # Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'))
 
     def handle_message(self):
         while True:
@@ -66,10 +77,25 @@ class Client:
             # вызываем обработчик для полученного сообщения
             if int(message_type) == MessageType.ECHO:
                 print(f"[RECEIVED] {CLIENT}: Message - {message_data}")
-            # handle_received_message(message_type, message_data)
+            elif int(message_type) == MessageType.AUDIO:
+                pass
 
-    def send_audio(self):
-        pass
+    def handle_audio(self):
+        audio = AudioRecorder()
+        audio.in_stream_audio()
+        while True:
+            print(f"[SEND_HANDLER] {CLIENT}: start")
+            # считываем аудио-данные из микрофона
+            audio_data = audio.stream.read(AUDIO_CHUNK_SIZE)
+            compressed_data = zlib.compress(audio_data)
+            # print(f"[SEND_HANDLER] {CLIENT}: {audio_data}")
+            # кодируем аудио-данные в формат MP3
+            # encoded_data = encoder.encode_to_mp3(audio_data)
+            # encoded_data = encoder.encode_frame(audio_data)
+            print(f"[SEND_HANDLER] {CLIENT}: Encoded data: {compressed_data}")
+            # отправляем закодированные данные на сервер
+            Message.send_message_udp(self._udp_client_socket, MessageType.AUDIO, compressed_data, SERVER_ADDRESS,
+                                     UDP_SERVER_PORT)
 
     def connect(self):
         pass

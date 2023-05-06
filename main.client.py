@@ -7,7 +7,6 @@ import threading
 def main():
     client1 = Client()
     client1.connect_to_server()
-    print("DONE")
     client1.run()
 
 
