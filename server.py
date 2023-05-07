@@ -198,11 +198,19 @@ class Server:
             # data = Message.receive_big_message_udp(self._udp_server_socket)
             if data[0] == MessageType.VIDEO:
                 # Отображение кадра
-                decoded_data = base64.b64decode(data[1], altchars=b' /')
-                npdata = np.fromstring(decoded_data, dtype=np.uint8)
-                frame = cv2.imdecode(npdata, 1)
+
+                # decoded_data = base64.b64decode(data[1], altchars=b' /')
+                # print(decoded_data)
+                # npdata = np.fromstring(decoded_data, dtype=np.uint8)
+                # npdata = np.fromstring(data[1].decode(), dtype=np.uint8)
+                # frame = cv2.imdecode(npdata, 1)
+                # frame = cv2.imdecode(npdata, cv2.IMREAD_UNCHANGED)
+                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+
+                # print(frame)
                 cv2.imshow('Video Frame', frame)
-                # print(f"[AUDIO_HANDLER] {SERVER}: {data}")
+                if cv2.waitKey(1) == ord('q'):
+                    break
         cv2.destroyAllWindows()
 
     def create_room(self):

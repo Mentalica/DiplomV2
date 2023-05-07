@@ -4,6 +4,7 @@ import time
 import threading
 import zlib
 import cv2
+import numpy as np
 
 import pyaudio
 from message import Message
@@ -96,7 +97,7 @@ class Client:
             elif int(cmd) == MessageType.AUDIO:
                 threading.Thread(target=self.handle_audio_cmd).start()
             elif int(cmd) == MessageType.VIDEO:
-                self.handle_video_cmd()
+                threading.Thread(target=self.handle_video_cmd).start()
 
             # msg = input("[ACTION]: MSG - ")
             # Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'))
@@ -109,34 +110,34 @@ class Client:
         else:
             self._is_video_stream = True
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.VIDEO, START_FLAG)
-            self.handle_audio_stream()
-            # threading.Thread(target=self.handle_video_stream).start()
             print(f"[ACTION] {CLIENT}: Video stream was started")
+            self.handle_video_stream()
+            # threading.Thread(target=self.handle_video_stream).start()
+
 
     def handle_video_stream(self):
         # Инициализация видео захвата
         capture = cv2.VideoCapture(0)
 
-        while True:
+        while self._is_video_stream:
             # Чтение кадра
             ret, frame = capture.read()
+            # cv2.imshow('Video Frame', frame)
+            # print(frame)
             encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            message = base64.b64encode(buffer)
+            # print(buffer)
+            # message = base64.b64encode(buffer)
+
             # print(f"Len: {len(message)}data: {message}")
-            Message.send_message_udp(self._video_udp_client_socket, MessageType.VIDEO, message, MAIN_SERVER_ADDRESS,
+            # Message.send_message_udp(self._video_udp_client_socket, MessageType.VIDEO, message, MAIN_SERVER_ADDRESS,
+            Message.send_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(), MAIN_SERVER_ADDRESS,
                                      self._video_udp_server_port)
             # Message.send_large_message_udp(self._udp_client_socket, MessageType.VIDEO, message, SERVER_ADDRESS,
             #                                UDP_SERVER_PORT)
-            # Отображение кадра
-            # cv2.imshow('Video Frame', frame)
-
-            # Ожидание нажатия клавиши 'q' для выхода из цикла
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
         # Остановка захвата видео и освобождение ресурсов
         capture.release()
-        cv2.destroyAllWindows()
+        # cv2.destroyAllWindows()
 
     def handle_audio_cmd(self):
         if self._is_audio_stream:
@@ -146,9 +147,10 @@ class Client:
         else:
             self._is_audio_stream = True
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.AUDIO, START_FLAG)
-            # self.handle_audio_stream()
-            threading.Thread(target=self.handle_audio_stream).start()
             print(f"[ACTION] {CLIENT}: Audio stream was started")
+            # threading.Thread(target=self.handle_audio_stream).start()
+            self.handle_audio_stream()
+
 
     def handle_audio_stream(self):
         audio = AudioRecorder()
