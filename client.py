@@ -5,6 +5,7 @@ import threading
 import zlib
 import cv2
 import numpy as np
+import mss
 
 import pyaudio
 from message import Message
@@ -28,8 +29,10 @@ class Client:
         self._voice_udp_server_port = None
         self._video_udp_server_port = None
 
+        # stream flags
         self._is_audio_stream = False
         self._is_video_stream = False
+        self._is_screen_stream = False
 
     def connect_to_server(self):
         self._main_tcp_client_socket = self.connect_to_tcp_server(MAIN_TCP_SERVER_PORT)
@@ -47,7 +50,6 @@ class Client:
             self._voice_udp_client_socket = self.connect_to_udp_server(self._voice_udp_server_port)
             self._video_udp_server_port = int(ports[3])
             self._video_udp_client_socket = self.connect_to_udp_server(self._video_udp_server_port)
-
 
         # self.connect_to_udp_server()
 
@@ -93,14 +95,53 @@ class Client:
             time.sleep(0.1)  # STILL I HAVENT GUI
             cmd = input(f"[ACTION-INPUT] {CLIENT}: Command number - ")
             if int(cmd) == MessageType.ECHO:
-                threading.Thread(target=Message.send_message_tcp, args=(self._cmd_tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'),)).start()
+                threading.Thread(target=Message.send_message_tcp,
+                                 args=(self._cmd_tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'),)).start()
             elif int(cmd) == MessageType.AUDIO:
                 threading.Thread(target=self.handle_audio_cmd).start()
             elif int(cmd) == MessageType.VIDEO:
                 threading.Thread(target=self.handle_video_cmd).start()
+            elif int(cmd) == MessageType.SCREENSHARE:
+                threading.Thread(target=self.handle_screen_cmd).start()
 
             # msg = input("[ACTION]: MSG - ")
             # Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'))
+
+    def handle_screen_cmd(self):
+        if self._is_screen_stream:
+            self._is_screen_stream = False
+            Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.SCREENSHARE, STOP_FLAG)
+            print(f"[ACTION] {CLIENT}: Video stream was stopped")
+        else:
+            self._is_screen_stream = True
+            Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.SCREENSHARE, START_FLAG)
+            print(f"[ACTION] {CLIENT}: Video stream was started")
+            self.handle_screen_stream()
+
+    def handle_screen_stream(self):
+        with mss.mss() as sct:
+            # Можно выбрать конкретный монитор, указав его номер в параметре monitor
+            monitor = sct.monitors[1]
+            width = monitor["width"]
+            height = monitor["height"]
+            # Формируем словарь с параметрами для создания окна
+            window_dict = {"top": monitor["top"], "left": monitor["left"], "width": width, "height": height}
+            # Бесконечный цикл для получения и отправки изображений
+            while True:
+                # Снимаем скриншот экрана и конвертируем его в numpy array
+                img = np.array(sct.grab(window_dict))
+                # Конвертируем изображение из формата BGR в RGB
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # Сжимаем изображение в формат JPEG
+                _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+
+                Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE, buffer.tobytes(),
+                                               MAIN_SERVER_ADDRESS,
+                                               self._screen_udp_server_port)
+                # Отправляем изображение по сокету
+                # sock.sendall(buffer)
+                # Ждем 0.1 секунду перед следующим снимком экрана
+                time.sleep(0.1)
 
     def handle_video_cmd(self):
         if self._is_video_stream:
@@ -114,30 +155,20 @@ class Client:
             self.handle_video_stream()
             # threading.Thread(target=self.handle_video_stream).start()
 
-
     def handle_video_stream(self):
         # Инициализация видео захвата
         capture = cv2.VideoCapture(0)
-
         while self._is_video_stream:
             # Чтение кадра
             ret, frame = capture.read()
-            # cv2.imshow('Video Frame', frame)
-            # print(frame)
+
             encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            # print(buffer)
-            # message = base64.b64encode(buffer)
 
-            # print(f"Len: {len(message)}data: {message}")
-            # Message.send_message_udp(self._video_udp_client_socket, MessageType.VIDEO, message, MAIN_SERVER_ADDRESS,
-            Message.send_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(), MAIN_SERVER_ADDRESS,
+            Message.send_large_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(),
+                                     MAIN_SERVER_ADDRESS,
                                      self._video_udp_server_port)
-            # Message.send_large_message_udp(self._udp_client_socket, MessageType.VIDEO, message, SERVER_ADDRESS,
-            #                                UDP_SERVER_PORT)
-
-        # Остановка захвата видео и освобождение ресурсов
         capture.release()
-        # cv2.destroyAllWindows()
+
 
     def handle_audio_cmd(self):
         if self._is_audio_stream:
@@ -151,7 +182,6 @@ class Client:
             # threading.Thread(target=self.handle_audio_stream).start()
             self.handle_audio_stream()
 
-
     def handle_audio_stream(self):
         audio = AudioRecorder()
         audio.in_stream_audio()
@@ -160,7 +190,8 @@ class Client:
             audio_data = audio.stream.read(AUDIO_CHUNK_SIZE)
             compressed_data = zlib.compress(audio_data)
             # отправляем закодированные данные на сервер
-            Message.send_message_udp(self._voice_udp_client_socket, MessageType.AUDIO, compressed_data, MAIN_SERVER_ADDRESS,
+            Message.send_message_udp(self._voice_udp_client_socket, MessageType.AUDIO, compressed_data,
+                                     MAIN_SERVER_ADDRESS,
                                      self._voice_udp_server_port)
         audio.close()
 
@@ -170,8 +201,9 @@ class Client:
             # вызываем обработчик для полученного сообщения
             if int(message_type) == MessageType.ECHO:
                 print(f"[RECEIVED] {CLIENT}: Message - {message_data}")
-            elif int(message_type) == MessageType.AUDIO:
-                pass
+            elif int(message_type) == MessageType.VIDEO:
+                if message_data == STOP_FLAG:
+                    self._is_video_stream = False
 
     def connect(self):
         pass

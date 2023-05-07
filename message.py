@@ -60,71 +60,40 @@ class Message:
         sock.sendto(packed_message, (dest_addr, dest_port))
 
     @staticmethod
-    def send_large_message_udp(sock: socket.socket, message_type, message_data: bytes, dest_addr: str,
-                               dest_port: int, chunk_size=MAX_BYTES_UDP):
-        # Упаковываем сообщение в нужном формате
-        # print(f"SEND {MESSAGE}: {message_type}")
+    def send_large_message_udp(sock: socket.socket, message_type: int, message_data: bytes, dest_addr: str,
+                               dest_port: int, chunk_size=MAX_BYTES_UDP - 100):
+
         packed_message = struct.pack(f"!I {len(message_data)}s", message_type, message_data)
-
-        # Определяем размер сообщения и количество необходимых частей
-        message_length = len(packed_message)
+        message_length = len(message_data)
         num_chunks = (message_length // chunk_size) + 1
-
-        # Разбиваем сообщение на части
         chunks = [packed_message[i:i + chunk_size] for i in range(0, message_length, chunk_size)]
 
-        # Отправляем каждую часть сообщения на указанный адрес и порт
         for i, chunk in enumerate(chunks):
-            # Определяем флаги начала и конца сообщения
             start_flag = i == 0
             end_flag = i == num_chunks - 1
-
-            # Упаковываем часть сообщения в нужном формате
             chunk_header = struct.pack("!??I", start_flag, end_flag, i)
-
-            # Отправляем часть сообщения на указанный адрес и порт
             sock.sendto(chunk_header + chunk, (dest_addr, dest_port))
 
-    # @staticmethod
-    # def receive_big_message_udp(sock: socket.socket):
-    #     message_chunks = []
-    #     message_size_bytes = sock.recv(4)  # первые 4 байта - размер сообщения
-    #     message_size = int.from_bytes(message_size_bytes, byteorder='big')
-    #     bytes_received = 0
-    #
-    #     while bytes_received < message_size:
-    #         chunk, address = sock.recvfrom(MAX_BYTES_UDP)
-    #         message_chunks.append(chunk)
-    #         bytes_received += len(chunk)
-    #
-    #     # склеиваем все чанки и возвращаем сообщение
-    #     message = b''.join(message_chunks)
-    #     message_type = int.from_bytes(message[:4], byteorder='big')
-    #     message_data = message[4:]
-    #     return message_type, message_data, address
-
     @staticmethod
-    def receive_big_message_udp(sock: socket.socket):
-        # Принимаем размер сообщения
-        message_size_bytes, address = sock.recvfrom(4)
-        message_size = int.from_bytes(message_size_bytes, byteorder='big')
+    def receive_large_message_udp(sock: socket.socket, chunk_size=MAX_BYTES_UDP):
+        chunk_header, address = sock.recvfrom(chunk_size)
 
-        # Принимаем данные сообщения
-        received_data = b""
-        while len(received_data) < message_size:
-            data, address = sock.recvfrom(MAX_BYTES_UDP)
-            received_data += data
+        message_chunks = {}
+        start_flag, end_flag, chunk_index, message_type = struct.unpack(f"!??II", chunk_header[:10])
+        message_chunks[0] = chunk_header[10:]
 
-        return received_data
+        start_of_message = start_flag
+        end_of_message = end_flag
 
-    @staticmethod
-    def send_big_message_udp(sock: socket.socket, message: bytes, dest_addr: str, dest_port: int):
-        # Отправляем размер сообщения
-        message_size_bytes = len(message).to_bytes(4, byteorder='big')
-        sock.sendto(message_size_bytes, (dest_addr, dest_port))
+        while not end_of_message:
+            # flag = True
+            chunk_header, address = sock.recvfrom(chunk_size)
+            start_flag, end_flag, chunk_index = struct.unpack("!??I", chunk_header[:6])
+            start_of_message |= start_flag
+            end_of_message |= end_flag
+            message_chunks[chunk_index + 1] = chunk_header[6:]
 
-        # Отправляем данные сообщения порциями
-        total_sent = 0
-        while total_sent < len(message):
-            sent = sock.sendto(message[total_sent:], (dest_addr, dest_port))
-            total_sent += sent
+        sorted_chunks = [message_chunks[i] for i in sorted(message_chunks)]
+        message_data = b"".join(sorted_chunks)
+
+        return message_type, message_data, address

@@ -162,13 +162,11 @@ class Server:
 
             # Обрабатываем сообщение в зависимости от его типа
             if message_type == MessageType.ECHO:
-                # Обработка command-сообщения
                 threading.Thread(target=Message.send_message_tcp, args=(client.cmd_tcp_socket_client, MessageType.ECHO, b"Hello there",)).start()
             elif message_type == MessageType.VIDEO:
                 if message_data == START_FLAG:
                     self._is_video_stream = True
                     threading.Thread(target=self.video_handler, args=(client,)).start()
-                    # self.video_handler(client)
                 elif message_data == STOP_FLAG:
                     self._is_video_stream = False
             elif message_type == MessageType.AUDIO:
@@ -177,7 +175,24 @@ class Server:
                     threading.Thread(target=self.audio_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
                     self._is_audio_stream = False
+            elif message_type == MessageType.SCREENSHARE:
+                if message_data == START_FLAG:
+                    self._is_screen_stream = True
+                    threading.Thread(target=self.screenshare_handler, args=(client,)).start()
+                elif message_data == STOP_FLAG:
+                    self._is_screen_stream = False
 
+    def screenshare_handler(self, client: User):
+        while self._is_screen_stream:
+            data = Message.receive_large_message_udp(client.screen_udp_socket_server)
+            # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
+            if data[0] == MessageType.SCREENSHARE:
+                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+
+                cv2.imshow('Video Frame', frame)
+                if cv2.waitKey(1) == ord('q'):
+                    break
+        cv2.destroyAllWindows()
 
     def audio_handler(self, client: User):
         audio = AudioRecorder()
@@ -193,9 +208,9 @@ class Server:
 
     def video_handler(self, client: User):
         while self._is_video_stream:
-            data = Message.receive_message_udp(client.video_udp_socket_server)
+            # data = Message.receive_message_udp(client.video_udp_socket_server)
+            data = Message.receive_large_message_udp(client.video_udp_socket_server)
             # print(f"{len(data[1])}\ndata: {data[1]}")
-            # data = Message.receive_big_message_udp(self._udp_server_socket)
             if data[0] == MessageType.VIDEO:
                 # Отображение кадра
 
@@ -210,6 +225,7 @@ class Server:
                 # print(frame)
                 cv2.imshow('Video Frame', frame)
                 if cv2.waitKey(1) == ord('q'):
+                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
                     break
         cv2.destroyAllWindows()
 
