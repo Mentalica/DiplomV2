@@ -5,7 +5,7 @@ from consts import *
 
 
 class NetworkManager:
-    def __init__(self, udp_server_port=UDP_SERVER_PORT, tcp_server_port=TCP_SERVER_PORT, server_address=SERVER_ADDRESS):
+    def __init__(self, udp_server_port=UDP_SERVER_PORT, tcp_server_port=MAIN_TCP_SERVER_PORT, server_address=MAIN_SERVER_ADDRESS):
         self._udp_server_port = udp_server_port
         self._tcp_server_port = tcp_server_port
         self._server_address = server_address
@@ -36,7 +36,7 @@ class NetworkManager:
     def connect_to_tcp_server(self, client_id):
         tcp_client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Connect to the server
-        server_address = (SERVER_ADDRESS, TCP_SERVER_PORT)
+        server_address = (MAIN_SERVER_ADDRESS, MAIN_TCP_SERVER_PORT)
         # self._tcp_server_socket.connect((SERVER_ADDRESS, TCP_SERVER_PORT))
         tcp_client_socket.connect(server_address) # FOR DIFF PCs
         self._tcp_client_sockets[client_id] = tcp_client_socket
