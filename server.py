@@ -191,6 +191,7 @@ class Server:
 
                 cv2.imshow('Video Frame', frame)
                 if cv2.waitKey(1) == ord('q'):
+                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
                     break
         cv2.destroyAllWindows()
 

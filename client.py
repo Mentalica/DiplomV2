@@ -121,7 +121,7 @@ class Client:
     def handle_screen_stream(self):
         with mss.mss() as sct:
             # Можно выбрать конкретный монитор, указав его номер в параметре monitor
-            monitor = sct.monitors[1]
+            monitor = sct.monitors[2]
             width = monitor["width"]
             height = monitor["height"]
             # Формируем словарь с параметрами для создания окна
@@ -131,7 +131,7 @@ class Client:
                 # Снимаем скриншот экрана и конвертируем его в numpy array
                 img = np.array(sct.grab(window_dict))
                 # Конвертируем изображение из формата BGR в RGB
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 # Сжимаем изображение в формат JPEG
                 _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
@@ -141,7 +141,7 @@ class Client:
                 # Отправляем изображение по сокету
                 # sock.sendall(buffer)
                 # Ждем 0.1 секунду перед следующим снимком экрана
-                time.sleep(0.1)
+                time.sleep(0.01)
 
     def handle_video_cmd(self):
         if self._is_video_stream:
@@ -204,6 +204,9 @@ class Client:
             elif int(message_type) == MessageType.VIDEO:
                 if message_data == STOP_FLAG:
                     self._is_video_stream = False
+            elif int(message_type) == MessageType.SCREENSHARE:
+                if message_data == STOP_FLAG:
+                    self._is_screen_stream = False
 
     def connect(self):
         pass
