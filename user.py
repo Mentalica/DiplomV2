@@ -33,13 +33,26 @@ class User:
         self._main_tcp_socket_client = main_tcp_socket_client
         self._cmd_tcp_socket_client = None
 
+        self._rooms_list = []
         #Flags
         self._is_online = None  # Later
         self._is_muted = None  # Later
         self._is_deafened = None  # Later
         self._room = None  # Later
 
+    def get_room_list(self):
+        return self._rooms_list
 
+    def add_room_to_list(self, value):
+        self._rooms_list.append(value)
+
+    @property
+    def rooms_list(self):
+        return self._rooms_list
+
+    @rooms_list.setter
+    def rooms_list(self, value):
+        self._rooms_list = value
 
     # Геттеры
 

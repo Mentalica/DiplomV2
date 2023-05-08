@@ -25,4 +25,5 @@ Global Todo and Future
 To Fix
 - [ ] play audio on client not server
 - [ ] change demonstration settings
-
+- [ ] stop sockets
+- [ ] handle errors

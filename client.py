@@ -55,7 +55,7 @@ class Client:
 
     def connect_to_udp_server(self, udp_server_port):
         udp_client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        Message.send_message_udp(udp_client_socket, MessageType.ECHO, b"OK", MAIN_SERVER_ADDRESS, udp_server_port)
+        Message.send_message_udp(udp_client_socket, MessageType.ECHO, b"OK", MAIN_SERVER_ADDRESS_CL, udp_server_port)
         msg = Message.receive_message_udp(udp_client_socket)
         if int(msg[0]) == MessageType.ECHO and msg[1].decode() == "OK":
             print(f"[OK] {CLIENT} Client connected to UDP server\n\tSocket: {udp_client_socket}")
@@ -66,7 +66,7 @@ class Client:
     def connect_to_tcp_server(self, tcp_port):
         tcp_client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Connect to the server
-        server_address = (MAIN_SERVER_ADDRESS, tcp_port)
+        server_address = (MAIN_SERVER_ADDRESS_CL, tcp_port)
         # self._tcp_server_socket.connect((SERVER_ADDRESS, TCP_SERVER_PORT))
         tcp_client_socket.connect(server_address)  # FOR DIFF PCs
         print(f"[OK] {CLIENT} Client connected to TCP server\n\tSocket: {tcp_client_socket}")
@@ -136,8 +136,7 @@ class Client:
                 _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
                 Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE, buffer.tobytes(),
-                                               MAIN_SERVER_ADDRESS,
-                                               self._screen_udp_server_port)
+                                               MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port)
                 # Отправляем изображение по сокету
                 # sock.sendall(buffer)
                 # Ждем 0.1 секунду перед следующим снимком экрана
@@ -165,10 +164,9 @@ class Client:
             encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
             Message.send_large_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(),
-                                     MAIN_SERVER_ADDRESS,
-                                     self._video_udp_server_port)
+                                           MAIN_SERVER_ADDRESS_CL,
+                                           self._video_udp_server_port)
         capture.release()
-
 
     def handle_audio_cmd(self):
         if self._is_audio_stream:
@@ -191,7 +189,7 @@ class Client:
             compressed_data = zlib.compress(audio_data)
             # отправляем закодированные данные на сервер
             Message.send_message_udp(self._voice_udp_client_socket, MessageType.AUDIO, compressed_data,
-                                     MAIN_SERVER_ADDRESS,
+                                     MAIN_SERVER_ADDRESS_CL,
                                      self._voice_udp_server_port)
         audio.close()
 
@@ -205,8 +203,23 @@ class Client:
                 if message_data == STOP_FLAG:
                     self._is_video_stream = False
             elif int(message_type) == MessageType.SCREENSHARE:
-                if message_data == STOP_FLAG:
-                    self._is_screen_stream = False
+                # if message_data == STOP_FLAG:
+                self._is_screen_stream = True
+                threading.Thread(target=self.receive_screen).start()
+
+    def receive_screen(self):
+        while self._is_screen_stream:
+            data = Message.receive_large_message_udp(self._screen_udp_client_socket)
+            # print(data)
+            # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
+            if data[0] == MessageType.SCREENSHARE:
+                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+
+                cv2.imshow('Video Frame', frame)
+                if cv2.waitKey(1) == ord('q'):
+                    # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
+                    break
+        cv2.destroyAllWindows()
 
     def connect(self):
         pass

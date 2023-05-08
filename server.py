@@ -4,6 +4,7 @@ import struct
 import threading
 import time
 import zlib
+from typing import List
 
 import cv2
 import numpy as np
@@ -15,6 +16,7 @@ from networkManager import NetworkManager
 from audioRecorder import AudioRecorder
 from consts import *
 from user import User
+from room import Room
 
 
 class Server:
@@ -27,7 +29,8 @@ class Server:
         self._is_audio_stream = False
         self._is_video_stream = False
         self._is_screen_stream = False
-        self._clients = []
+        self._rooms: List[Room] = []
+        self._clients: list[User] = []
 
     def start(self):
         self._tcp_server_socket = self.create_tcp_socket(MAIN_TCP_SERVER_PORT, self._max_clients)
@@ -181,19 +184,61 @@ class Server:
                     threading.Thread(target=self.screenshare_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
                     self._is_screen_stream = False
+            elif message_type == MessageType.CREATE_ROOM:
+                pass
+            elif message_type == MessageType.DELETE_ROOM:
+                pass
+            elif message_type == MessageType.JOIN_ROOM:
+                pass
+
+    def create_room(self, message_data, client: User):
+        if len(self._rooms) == 0:
+            room_id = 0
+        else:
+            room_id = self._rooms[-1].room_id
+        room = Room(room_id=room_id, room_name=message_data.decode(), owner=client)
+        self._rooms.append(room)
+
+    def delete_room(self, message_data, client: User):
+        room = self.find_room_by_id(int(message_data.decode()))
+        self._rooms.remove(room)
+
+    def join_room(self, message_data, client: User):
+        room = self.find_room_by_id(int(message_data.decode()))
+        room.add_user_to_room(client)
+
+
+    def find_room_by_id(self, room_id):
+        for room in self._rooms:
+            if room.room_id == room_id:
+                return room
+        return None
+
+    # def screenshare_handler(self, client: User):
+    #     while self._is_screen_stream:
+    #         data = Message.receive_large_message_udp(client.screen_udp_socket_server)
+    #         # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
+    #         if data[0] == MessageType.SCREENSHARE:
+    #             frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+    #
+    #             cv2.imshow('Video Frame', frame)
+    #             if cv2.waitKey(1) == ord('q'):
+    #                 Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
+    #                 break
+    #     cv2.destroyAllWindows()
 
     def screenshare_handler(self, client: User):
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.SCREENSHARE, START_FLAG)
         while self._is_screen_stream:
             data = Message.receive_large_message_udp(client.screen_udp_socket_server)
             # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
-            if data[0] == MessageType.SCREENSHARE:
-                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+            for user in self._clients:
+                # print(f"Sended to - {user}")
+                # print(f"data - {data}")
+                threading.Thread(target=Message.send_large_message_udp, args=(user.screen_udp_socket_server,
+                                 MessageType.SCREENSHARE, data[1], user.address, user.screen_udp_port_client,)).start()
 
-                cv2.imshow('Video Frame', frame)
-                if cv2.waitKey(1) == ord('q'):
-                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
-                    break
-        cv2.destroyAllWindows()
 
     def audio_handler(self, client: User):
         audio = AudioRecorder()
@@ -230,16 +275,7 @@ class Server:
                     break
         cv2.destroyAllWindows()
 
-    def create_room(self):
-        pass
-
-    def delete_room(self):
-        pass
-
     def broadcast_message(self):
-        pass
-
-    def get_room_users(self):
         pass
 
     def get_all_rooms(self):
