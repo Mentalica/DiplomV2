@@ -32,147 +32,168 @@ class User:
         # client sockets
         self._main_tcp_socket_client = main_tcp_socket_client
         self._cmd_tcp_socket_client = None
+        # Flags
+        self._is_screen_stream = False
+        self._is_voice_stream = False
+        self._is_video_stream = False
+
 
         self._rooms_list = []
-        #Flags
+        # later
         self._is_online = None  # Later
         self._is_muted = None  # Later
         self._is_deafened = None  # Later
         self._room = None  # Later
 
-    def get_room_list(self):
-        return self._rooms_list
-
-    def add_room_to_list(self, value):
-        self._rooms_list.append(value)
 
     @property
-    def rooms_list(self):
-        return self._rooms_list
+    def is_screen_stream(self):
+        return self._is_screen_stream
 
-    @rooms_list.setter
-    def rooms_list(self, value):
-        self._rooms_list = value
+    @is_screen_stream.setter
+    def is_screen_stream(self, value):
+        self._is_screen_stream = value
 
-    # Геттеры
+    @property
+    def is_video_stream(self):
+        return self._is_video_stream
+
+    @is_video_stream.setter
+    def is_video_stream(self, value):
+        self._is_video_stream = value
+
+    @property
+    def is_voice_stream(self):
+        return self._is_voice_stream
+
+    @is_voice_stream.setter
+    def is_voice_stream(self, value):
+        self._is_voice_stream = value
 
     @property
     def cmd_tcp_socket_client(self):
         return self._cmd_tcp_socket_client
 
+    @cmd_tcp_socket_client.setter
+    def cmd_tcp_socket_client(self, value):
+        self._cmd_tcp_socket_client = value
+
     @property
     def address(self):
         return self._address
+
+    @address.setter
+    def address(self, new_address):
+        self._address = new_address
+
 
     @property
     def cmd_tcp_socket_server(self):
         return self._cmd_tcp_socket_server
 
-    @property
-    def screen_udp_socket_server(self):
-        return self._screen_udp_socket_server
-
-    @property
-    def voice_udp_socket_server(self):
-        return self._voice_udp_socket_server
-
-    @property
-    def video_udp_socket_server(self):
-        return self._video_udp_socket_server
-
-    @property
-    def cmd_tcp_port_server(self):
-        return self._cmd_tcp_port_server
-
-    @property
-    def screen_udp_port_server(self):
-        return self._screen_udp_port_server
-
-    @property
-    def voice_udp_port_server(self):
-        return self._voice_udp_port_server
-
-    @property
-    def video_udp_port_server(self):
-        return self._video_udp_port_server
-
-    @property
-    def cmd_tcp_port_client(self):
-        return self._cmd_tcp_port_client
-
-    @property
-    def screen_udp_port_client(self):
-        return self._screen_udp_port_client
-
-    @property
-    def voice_udp_port_client(self):
-        return self._voice_udp_port_client
-
-    @property
-    def video_udp_port_client(self):
-        return self._video_udp_port_client
-
-    @property
-    def user_id(self):
-        return self._user_id
-
-    # Сеттеры
-
-    @cmd_tcp_socket_client.setter
-    def cmd_tcp_socket_client(self, value):
-        self._cmd_tcp_socket_client = value
-    @address.setter
-    def address(self, new_address):
-        self._address = new_address
-
     @cmd_tcp_socket_server.setter
     def cmd_tcp_socket_server(self, value):
         self._cmd_tcp_socket_server = value
+
+    @property
+    def screen_udp_socket_server(self):
+        return self._screen_udp_socket_server
 
     @screen_udp_socket_server.setter
     def screen_udp_socket_server(self, value):
         self._screen_udp_socket_server = value
 
+    @property
+    def voice_udp_socket_server(self):
+        return self._voice_udp_socket_server
+
     @voice_udp_socket_server.setter
     def voice_udp_socket_server(self, value):
         self._voice_udp_socket_server = value
+
+    @property
+    def video_udp_socket_server(self):
+        return self._video_udp_socket_server
 
     @video_udp_socket_server.setter
     def video_udp_socket_server(self, value):
         self._video_udp_socket_server = value
 
+    @property
+    def cmd_tcp_port_server(self):
+        return self._cmd_tcp_port_server
+
     @cmd_tcp_port_server.setter
     def cmd_tcp_port_server(self, value):
         self._cmd_tcp_port_server = value
+
+    @property
+    def screen_udp_port_server(self):
+        return self._screen_udp_port_server
 
     @screen_udp_port_server.setter
     def screen_udp_port_server(self, value):
         self._screen_udp_port_server = value
 
+    @property
+    def voice_udp_port_server(self):
+        return self._voice_udp_port_server
+
     @voice_udp_port_server.setter
     def voice_udp_port_server(self, value):
         self._voice_udp_port_server = value
+
+    @property
+    def video_udp_port_server(self):
+        return self._video_udp_port_server
 
     @video_udp_port_server.setter
     def video_udp_port_server(self, value):
         self._video_udp_port_server = value
 
+    @property
+    def cmd_tcp_port_client(self):
+        return self._cmd_tcp_port_client
+
     @cmd_tcp_port_client.setter
     def cmd_tcp_port_client(self, value):
         self._cmd_tcp_port_client = value
+
+    @property
+    def screen_udp_port_client(self):
+        return self._screen_udp_port_client
 
     @screen_udp_port_client.setter
     def screen_udp_port_client(self, value):
         self._screen_udp_port_client = value
 
+    @property
+    def voice_udp_port_client(self):
+        return self._voice_udp_port_client
+
     @voice_udp_port_client.setter
     def voice_udp_port_client(self, value):
         self._voice_udp_port_client = value
+
+    @property
+    def video_udp_port_client(self):
+        return self._video_udp_port_client
 
     @video_udp_port_client.setter
     def video_udp_port_client(self, value):
         self._video_udp_port_client = value
 
+    @property
+    def user_id(self):
+        return self._user_id
+
     @user_id.setter
     def user_id(self, value):
         self._user_id = value
+
+
+
+
+
+
+

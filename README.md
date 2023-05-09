@@ -27,3 +27,4 @@ To Fix
 - [ ] change demonstration settings
 - [ ] stop sockets
 - [ ] handle errors
+- [ ] add switch to show streams

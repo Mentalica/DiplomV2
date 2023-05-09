@@ -168,22 +168,23 @@ class Server:
                 threading.Thread(target=Message.send_message_tcp, args=(client.cmd_tcp_socket_client, MessageType.ECHO, b"Hello there",)).start()
             elif message_type == MessageType.VIDEO:
                 if message_data == START_FLAG:
-                    self._is_video_stream = True
+                    client.is_video_stream = True
                     threading.Thread(target=self.video_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
-                    self._is_video_stream = False
+                    client.is_video_stream = False
             elif message_type == MessageType.AUDIO:
                 if message_data == START_FLAG:
-                    self._is_audio_stream = True
+                    client.is_voice_stream = True
                     threading.Thread(target=self.audio_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
-                    self._is_audio_stream = False
+                    client.is_voice_stream = False
             elif message_type == MessageType.SCREENSHARE:
                 if message_data == START_FLAG:
-                    self._is_screen_stream = True
+                    client.is_screen_stream = True
                     threading.Thread(target=self.screenshare_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
-                    self._is_screen_stream = False
+                    client.is_screen_stream = False
+
             elif message_type == MessageType.CREATE_ROOM:
                 pass
             elif message_type == MessageType.DELETE_ROOM:
@@ -230,7 +231,7 @@ class Server:
     def screenshare_handler(self, client: User):
         for user in self._clients:
             Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.SCREENSHARE, START_FLAG)
-        while self._is_screen_stream:
+        while user.is_screen_stream:
             data = Message.receive_large_message_udp(client.screen_udp_socket_server)
             # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
             for user in self._clients:
@@ -238,42 +239,56 @@ class Server:
                 # print(f"data - {data}")
                 threading.Thread(target=Message.send_large_message_udp, args=(user.screen_udp_socket_server,
                                  MessageType.SCREENSHARE, data[1], user.address, user.screen_udp_port_client,)).start()
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
 
 
     def audio_handler(self, client: User):
-        audio = AudioRecorder()
-        audio.out_stream_audio()
-        while self._is_audio_stream:
+        # audio = AudioRecorder()
+        # audio.out_stream_audio()
+        # while client.is_voice_stream:
+        #     data = Message.receive_message_udp(client.voice_udp_socket_server)
+        #     if data[0] == MessageType.AUDIO:
+        #         # print(f"[AUDIO_HANDLER] {SERVER}: {data}")
+        #         data = zlib.decompress(data[1])
+        #         # Проигрываем декодированное аудио
+        #         audio.stream.write(data)
+        # audio.close()
+
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.AUDIO, START_FLAG)
+        while client.is_voice_stream:
             data = Message.receive_message_udp(client.voice_udp_socket_server)
-            if data[0] == MessageType.AUDIO:
-                # print(f"[AUDIO_HANDLER] {SERVER}: {data}")
-                data = zlib.decompress(data[1])
-                # Проигрываем декодированное аудио
-                audio.stream.write(data)
-        audio.close()
+            for user in self._clients:
+                threading.Thread(target=Message.send_message_udp, args=(user.voice_udp_socket_server,
+                                 MessageType.AUDIO, data[1], user.address, user.voice_udp_port_client,)).start()
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.AUDIO, STOP_FLAG)
 
     def video_handler(self, client: User):
-        while self._is_video_stream:
-            # data = Message.receive_message_udp(client.video_udp_socket_server)
+        # while self._is_video_stream:
+        #     # data = Message.receive_message_udp(client.video_udp_socket_server)
+        #     data = Message.receive_large_message_udp(client.video_udp_socket_server)
+        #     # print(f"{len(data[1])}\ndata: {data[1]}")
+        #     if data[0] == MessageType.VIDEO:
+        #         frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+        #
+        #         # print(frame)
+        #         cv2.imshow('Video Frame', frame)
+        #         if cv2.waitKey(1) == ord('q'):
+        #             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
+        #             break
+        # cv2.destroyAllWindows()
+
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.VIDEO, START_FLAG)
+        while client.is_video_stream:
             data = Message.receive_large_message_udp(client.video_udp_socket_server)
-            # print(f"{len(data[1])}\ndata: {data[1]}")
-            if data[0] == MessageType.VIDEO:
-                # Отображение кадра
-
-                # decoded_data = base64.b64decode(data[1], altchars=b' /')
-                # print(decoded_data)
-                # npdata = np.fromstring(decoded_data, dtype=np.uint8)
-                # npdata = np.fromstring(data[1].decode(), dtype=np.uint8)
-                # frame = cv2.imdecode(npdata, 1)
-                # frame = cv2.imdecode(npdata, cv2.IMREAD_UNCHANGED)
-                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-
-                # print(frame)
-                cv2.imshow('Video Frame', frame)
-                if cv2.waitKey(1) == ord('q'):
-                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
-                    break
-        cv2.destroyAllWindows()
+            for user in self._clients:
+                threading.Thread(target=Message.send_large_message_udp, args=(user.video_udp_socket_server,
+                                 MessageType.VIDEO, data[1], user.address, user.video_udp_port_client,)).start()
+        for user in self._clients:
+            Message.send_message_tcp(user.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
 
     def broadcast_message(self):
         pass
