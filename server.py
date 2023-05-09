@@ -281,5 +281,3 @@ class Server:
     def get_all_rooms(self):
         pass
 
-
-
