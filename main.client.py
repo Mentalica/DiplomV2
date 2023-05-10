@@ -1,8 +1,6 @@
 import sys
 
 from PyQt5.QtWidgets import QApplication
-
-from networkManager import NetworkManager
 from server import Server
 from client import Client
 import threading

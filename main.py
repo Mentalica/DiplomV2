@@ -1,4 +1,3 @@
-from networkManager import NetworkManager
 from server import Server
 from client import Client
 import threading
