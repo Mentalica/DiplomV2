@@ -23,6 +23,8 @@ MESSAGE = '\033[91m' + 'Message:' + '\033[0m'
 # FLAGS
 START_FLAG = b'start'
 STOP_FLAG = b'stop'
+OK_FLAG = b'ok'
+ERROR_FLAG = b'error'
 
 FIRST_PORT = 4000
 LAST_PORT = 5000

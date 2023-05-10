@@ -7,4 +7,6 @@ class MessageType:
     CREATE_ROOM = 6
     DELETE_ROOM = 7
     JOIN_ROOM = 8
-    GET_LIST_ROOMS = 9 # rooms which able to user
+    LEAVE_ROOM = 9
+    GET_ROOM_LIST = 10 # rooms which able to user
+    GET_CLIENT_LIST = 11

@@ -1,31 +1,53 @@
 from typing import List
 
-from user import User
+# from user import User
 
 
 class Room:
-    def __init__(self, room_id, owner: User, room_name=None):
+    def __init__(self, room_id, owner, room_name=None):
         self._room_id = room_id
         self._room_name = room_name
-        self._user_list: List[User] = [owner]
+        self._user_list = [owner]
+        # self._user_list: List[User] = [owner]
         self._owner = owner
         self.add_room_to_user(owner)
         self._chat = None
 
-    def add_room_to_user(self, user: User):
-        user.add_room_to_list(self._room_id)
+    def add_room_to_user(self, user):
+        user.add_room_to_list(self)
 
-    def add_user_to_room(self, user: User):
+    def add_user_to_room(self, user):
         self._user_list.append(user)
 
-    def delete_user_from_room(self):
-        pass
+    def delete_user_from_room(self, user):
+        # self._user_list = [u for u in self._user_list if u != user]
+        for user_i in self._user_list:
+            if user_i == user:
+                self._user_list.remove(user)
+                break
 
-    def check_privileges(self):
-        pass
+    def delete_room_for_users(self):
+        for user in self._user_list:
+            user.delete_room(self)
+            if user.active_room == self:
+                user.active_room = None
 
-    def check_user(self):
-        pass
+
+    def check_user(self, user):
+        for user_i in self._user_list:
+            if user_i == user:
+                self._user_list.remove(user)
+                return True
+        return False
+
+    def is_owner(self, user):
+        if user == self._owner:
+            return True
+        else:
+            return False
+
+    def get_user_list(self):
+        return self._user_list
 
     @property
     def room_id(self):

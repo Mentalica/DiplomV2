@@ -2,11 +2,10 @@
 
 Global Todo and Future
 
-- [ ] Rooms
-- - [ ] userRoom
-- - [ ] server should create Room when user ask
-- - [ ] server should check privileges of user in Room
-- - [ ] send broadcast message to users in room (Video, Audio, Voice, Chat)
+- [x] Rooms
+- - [x] server should create Room when user ask
+- - [x] server should check privileges of user in Room
+- - [x] send broadcast message to users in room (Video, Audio, Voice, Chat)
 - [ ] Chat
 - - [ ] time for chat
 - - [ ] user_id that send msg
@@ -23,8 +22,11 @@ Global Todo and Future
 - [ ] Add settings to streams
 
 To Fix
-- [ ] play audio on client not server
+- [x] play audio on client not server
+- [x] ! When user connected to server should start all stream threads
+- [ ] close/open stream for user side
 - [ ] change demonstration settings
 - [ ] stop sockets
 - [ ] handle errors
 - [ ] add switch to show streams
+- [ ] починить input в потоке 

@@ -1,14 +1,15 @@
 import socket
+from typing import List
 
+# from room import Room
 
 class User:
-    def __init__(self, user_id=None, user_name=None, password=None, email=None, main_tcp_socket_client=None,
-                 cmd_tcp_socket=None, udp_socket=None, address=None, screen_udp_port_client=None,
-                 cmd_tcp_port_client=None, voice_udp_port_client=None, video_udp_port_client=None,
-                 cmd_tcp_port_server=None, screen_udp_port_server=None, voice_udp_port_server=None,
-                 video_udp_port_server=None, main_tcp_port=None):
+    def __init__(self, user_id=None, username="", password=None, email=None, main_tcp_socket_client=None,
+                 address=None, screen_udp_port_client=None, cmd_tcp_port_client=None, voice_udp_port_client=None,
+                 video_udp_port_client=None, cmd_tcp_port_server=None, screen_udp_port_server=None,
+                 voice_udp_port_server=None, video_udp_port_server=None, main_tcp_port=None):
         self._user_id = user_id
-        self._username = user_name
+        self._username = username
         self._password = password
         self._email = email
         self._main_tcp_port = main_tcp_port
@@ -38,13 +39,46 @@ class User:
         self._is_video_stream = False
 
 
-        self._rooms_list = []
+        # self._room_list: List[Room] = []
+        # self._active_room: Room = None
+        self._room_list = []
+        self._active_room = None
         # later
         self._is_online = None  # Later
         self._is_muted = None  # Later
         self._is_deafened = None  # Later
         self._room = None  # Later
 
+
+
+    def get_room_list(self):
+        return self._room_list
+
+    def add_room_to_list(self, value):
+        self._room_list.append(value)
+
+    def delete_room(self, room):
+        # self._room_list = [r for r in self._room_list if r != room]
+        for r in self._room_list:
+            if r == room:
+                self._room_list.remove(r)
+                break
+
+    @property
+    def username(self):
+        return self._username
+
+    @username.setter
+    def username(self, value):
+        self._username = value
+
+    @property
+    def active_room(self):
+        return self._active_room
+
+    @active_room.setter
+    def active_room(self, value):
+        self._active_room = value
 
     @property
     def is_screen_stream(self):

@@ -12,10 +12,13 @@ from message import Message
 from messageType import MessageType
 from audioRecorder import AudioRecorder
 from consts import *
+from PyQt5.QtCore import QObject, pyqtSignal
 
-
-class Client:
+class Client(QObject):
+    toggle_stream = pyqtSignal(bool)
+    frame_received = pyqtSignal(np.ndarray)
     def __init__(self):
+        super().__init__()
         self._main_tcp_client_socket = None
         # client sockets
         self._cmd_tcp_client_socket = None
@@ -33,11 +36,15 @@ class Client:
         self._is_audio_stream = False
         self._is_video_stream = False
         self._is_screen_stream = False
-        self._show_other_screen_stream = False
-        self._show_other_video_stream = False
-        self._show_other_audio_stream = False
+        self._show_other_screen_stream = True
+        self._show_other_video_stream = True
+        self._show_other_audio_stream = True
 
         self._audio = AudioRecorder()
+        self._room_name_list = []
+        self._active_room = None
+        self._users_in_room = []
+
         # self._audio_in = self._audio.in_stream_audio()
         # self._audio_out = self._audio.out_stream_audio()
 
@@ -46,7 +53,7 @@ class Client:
 
         msg_type, msg_data = Message.receive_message_tcp(self._main_tcp_client_socket)
         print(f"[inf] {CLIENT}: msg data: {msg_data}\nmsg type: {msg_type}\nsocket: {self._main_tcp_client_socket}")
-        ports = msg_data.decode().split(" ")
+        ports = msg_data.decode().split("|")
         print(f"[RECEIVED] {CLIENT}: ports - {ports}")
         if msg_type == MessageType.ECHO:
             self._cmd_tcp_server_port = int(ports[0])
@@ -100,7 +107,7 @@ class Client:
     def send_command(self):
         while True:
             time.sleep(0.1)  # STILL I HAVENT GUI
-            cmd = input(f"[ACTION-INPUT] {CLIENT}: Command number - ")
+            cmd = input(f"[ACTION-INPUT] {CLIENT} ({self._active_room}) Command number - ")
             if int(cmd) == MessageType.ECHO:
                 threading.Thread(target=Message.send_message_tcp,
                                  args=(self._cmd_tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'),)).start()
@@ -110,9 +117,44 @@ class Client:
                 threading.Thread(target=self.handle_video_cmd).start()
             elif int(cmd) == MessageType.SCREENSHARE:
                 threading.Thread(target=self.handle_screen_cmd).start()
+            elif int(cmd) == MessageType.CREATE_ROOM:
+                room_name = input(f"[INPUT] {CLIENT}: Room name to create - ")
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.CREATE_ROOM,
+                                         room_name.encode('utf-8'))
+            elif int(cmd) == MessageType.DELETE_ROOM:
+                room_name = input(f"[INPUT] {CLIENT}: Room name to delete - ")
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.DELETE_ROOM,
+                                         room_name.encode('utf-8'))
+            elif int(cmd) == MessageType.JOIN_ROOM:
+                room_name = input(f"[INPUT] {CLIENT}: Room name to join - ")
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.JOIN_ROOM,
+                                         room_name.encode('utf-8'))
+            elif int(cmd) == MessageType.LEAVE_ROOM:
+                self._active_room = None
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.LEAVE_ROOM,
+                                         OK_FLAG)
+            elif int(cmd) == MessageType.GET_ROOM_LIST:
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.GET_ROOM_LIST,
+                                         OK_FLAG)
+            elif int(cmd) == MessageType.GET_CLIENT_LIST:
+                Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.GET_CLIENT_LIST,
+                                         OK_FLAG)
 
             # msg = input("[ACTION]: MSG - ")
             # Message.send_message_tcp(self._tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'))
+    def send_command_ui(self, cmd):
+        # while True:
+        #     time.sleep(0.1)  # STILL I HAVENT GUI
+        #     cmd = input(f"[ACTION-INPUT] {CLIENT}: Command number - ")
+        if int(cmd) == MessageType.ECHO:
+            threading.Thread(target=Message.send_message_tcp,
+                             args=(self._cmd_tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'),)).start()
+        elif int(cmd) == MessageType.AUDIO:
+            threading.Thread(target=self.handle_audio_cmd).start()
+        elif int(cmd) == MessageType.VIDEO:
+            threading.Thread(target=self.handle_video_cmd).start()
+        elif int(cmd) == MessageType.SCREENSHARE:
+            threading.Thread(target=self.handle_screen_cmd).start()
 
     def handle_screen_cmd(self):
         if self._is_screen_stream:
@@ -152,10 +194,12 @@ class Client:
     def handle_video_cmd(self):
         if self._is_video_stream:
             self._is_video_stream = False
+            # self.toggle_stream.emit(self._is_video_stream)
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.VIDEO, STOP_FLAG)
             print(f"[ACTION] {CLIENT}: Video stream was stopped")
         else:
             self._is_video_stream = True
+            # self.toggle_stream.emit(self._is_video_stream)
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.VIDEO, START_FLAG)
             print(f"[ACTION] {CLIENT}: Video stream was started")
             self.handle_video_stream()
@@ -197,7 +241,7 @@ class Client:
             Message.send_message_udp(self._voice_udp_client_socket, MessageType.AUDIO, compressed_data,
                                      MAIN_SERVER_ADDRESS_CL,
                                      self._voice_udp_server_port)
-        self._audio.close_in_stream()
+        # self._audio.close_in_stream()
 
     def handle_message(self):
         while True:
@@ -226,6 +270,39 @@ class Client:
                     threading.Thread(target=self.receive_audio).start()
                 elif message_data == STOP_FLAG:
                     self._show_other_audio_stream = False
+            elif int(message_type) == MessageType.CREATE_ROOM:
+                msg = message_data.decode().split("|")
+                if msg[0] == OK_FLAG.decode():
+                    print(type(msg[1]))
+                    self._room_name_list.append(msg[1])
+                    self._active_room = msg[1]
+                    print(f"[SUCCESS] {CLIENT}: The room was created successfully!")
+                elif msg[0] == ERROR_FLAG.decode():
+                    print(f"[ERROR] {CLIENT}: Cant create the room")
+            elif int(message_type) == MessageType.DELETE_ROOM:
+                msg = message_data.decode().split("|")
+                if msg[0] == OK_FLAG.decode():
+                    self._room_name_list.remove(msg[1])
+                    self._active_room = None
+                    print(f"[SUCCESS] {CLIENT}: The room was deleted successfully!")
+                elif msg[0] == ERROR_FLAG.decode():
+                    print(f"[ERROR] {CLIENT}: Cant delete the room")
+            elif int(message_type) == MessageType.JOIN_ROOM:
+                msg = message_data.decode().split("|")
+                if msg[0] == OK_FLAG.decode():
+                    self._active_room = msg[1]
+                    print(f"[SUCCESS] {CLIENT}: U re in room {msg[1]}")
+                elif msg[0] == ERROR_FLAG.decode():
+                    print(f"[ERROR] {CLIENT}: Cant create the room")
+            elif int(message_type) == MessageType.GET_ROOM_LIST:
+                self._room_name_list = message_data.decode().split("|")
+                print(f"[INFO] {CLIENT} Room list: {self._room_name_list}")
+            elif int(message_type) == MessageType.GET_CLIENT_LIST:
+                if msg[0] == ERROR_FLAG.decode():
+                    print(f"[INFO] {CLIENT} U re not in room")
+                else:
+                    self._users_in_room = message_data.decode().split("|")
+                    print(f"[INFO] {CLIENT} Users list: {self._users_in_room}")
 
     def receive_audio(self):
         self._audio.out_stream_audio()
@@ -236,32 +313,32 @@ class Client:
                 data = zlib.decompress(data[1])
                 # Проигрываем декодированное аудио
                 self._audio.out_stream.write(data)
-        self._audio.close_out_stream()
+        # self._audio.close_out_stream()
 
     def receive_screen(self):
         while self._show_other_screen_stream:
             data = Message.receive_large_message_udp(self._screen_udp_client_socket)
             if data[0] == MessageType.SCREENSHARE:
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-
-                cv2.imshow('Video Frame', frame)
-                if cv2.waitKey(1) == ord('q'):
+                self.frame_received.emit(frame)
+                # cv2.imshow('Video Frame', frame)
+                # if cv2.waitKey(1) == ord('q'):
                     # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
-                    break
-        cv2.destroyAllWindows()
+                    # break
+        # cv2.destroyAllWindows()
 
     def receive_video(self):
         while self._show_other_video_stream:
             data = Message.receive_large_message_udp(self._video_udp_client_socket)
             if data[0] == MessageType.VIDEO:
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-
+                self.frame_received.emit(frame)
                 # print(frame)
-                cv2.imshow('Video Frame', frame)
-                if cv2.waitKey(1) == ord('q'):
-                    # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
-                    break
-        cv2.destroyAllWindows()
+                # cv2.imshow('Video Frame', frame)
+                # if cv2.waitKey(1) == ord('q'):
+                #     Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
+                    # break
+        # cv2.destroyAllWindows()
 
     def connect(self):
         pass
