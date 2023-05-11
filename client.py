@@ -16,6 +16,7 @@ from audioRecorder import AudioRecorder
 from consts import *
 from PyQt5.QtCore import QObject, pyqtSignal
 from chatMessage import ChatMessage
+from user import User
 
 class Client(QObject):
     toggle_stream = pyqtSignal(bool)
@@ -46,7 +47,7 @@ class Client(QObject):
         self._audio = AudioRecorder()
         self._room_name_list = []
         self._active_room = None
-        self._users_in_room = []
+        self._users_in_room: List[User] = []
         self._is_authorized = False
 
         self._username = None
@@ -125,44 +126,60 @@ class Client(QObject):
             if int(cmd) == MessageType.ECHO:
                 threading.Thread(target=Message.send_message_tcp,
                                  args=(self._cmd_tcp_client_socket, MessageType.ECHO, cmd.encode('utf-8'),)).start()
+
             elif int(cmd) == MessageType.AUDIO:
                 threading.Thread(target=self.handle_audio_cmd).start()
+
             elif int(cmd) == MessageType.VIDEO:
                 threading.Thread(target=self.handle_video_cmd).start()
+
             elif int(cmd) == MessageType.SCREENSHARE:
                 threading.Thread(target=self.handle_screen_cmd).start()
+
             elif int(cmd) == MessageType.CREATE_ROOM:
                 room_name = input(f"[INPUT] {CLIENT}: Room name to create - ")
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.CREATE_ROOM, room_name.encode('utf-8'))
+
             elif int(cmd) == MessageType.DELETE_ROOM:
                 room_name = input(f"[INPUT] {CLIENT}: Room name to delete - ")
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.DELETE_ROOM, room_name.encode('utf-8'))
+
             elif int(cmd) == MessageType.JOIN_ROOM:
                 room_name = input(f"[INPUT] {CLIENT}: Room name to join - ")
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.JOIN_ROOM, room_name.encode('utf-8'))
+
             elif int(cmd) == MessageType.LEAVE_ROOM:
                 self._active_room = None
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.LEAVE_ROOM, OK_FLAG)
+
             elif int(cmd) == MessageType.GET_ROOM_LIST:
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.GET_ROOM_LIST, OK_FLAG)
+
             elif int(cmd) == MessageType.GET_CLIENT_LIST:
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.GET_CLIENT_LIST, OK_FLAG)
+
             elif int(cmd) == MessageType.LOGIN_USER:
+                # ДОБАВИТЬ ПРОВЕРКУ НА АТОРИЗОВАННОСТЬ
                 email = input(f"[LOGIN] {CLIENT}: Email - ")
                 password = input(f"[LOGIN] {CLIENT}: Password - ")
                 msg = "|".join([email, password])
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.LOGIN_USER, msg.encode())
+
             elif int(cmd) == MessageType.CREATE_USER:
+                # ДОБАВИТЬ ПРОВЕРКУ НА АТОРИЗОВАННОСТЬ
                 email = input(f"[SIGNUP] {CLIENT}: Email - ")
                 password = input(f"[SIGNUP] {CLIENT}: Password - ")
                 username = input(f"[SIGNUP] {CLIENT}: Username - ")
                 msg = "|".join([email, password, username])
+
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.CREATE_USER, msg.encode())
             elif int(cmd) == MessageType.LOGOUT_USER:
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.LOGOUT_USER, OK_FLAG)
+
             elif int(cmd) == MessageType.CHAT:
                 msg = input(f"[CHAT] {CLIENT}: Send message - ")
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.CHAT, msg.encode())
+
             elif int(cmd) == MessageType.UPDATE_CHAT:
                 Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.UPDATE_CHAT, START_FLAG)
             # msg = input("[ACTION]: MSG - ")
@@ -269,33 +286,70 @@ class Client(QObject):
                                      self._voice_udp_server_port)
         # self._audio.close_in_stream()
 
+    def get_user_by_id(self, user_id):
+        print(f"user id - - - {type(user_id)}{user_id}")
+        for user in self._users_in_room:
+            if user.user_id == user_id:
+                return user
+        return None
+
     def handle_message(self):
         while True:
             message_type, message_data = Message.receive_message_tcp(self._cmd_tcp_client_socket)
             # вызываем обработчик для полученного сообщения
             if int(message_type) == MessageType.ECHO:
-                print(f"[RECEIVED] {CLIENT}: Message - {message_data}")
+                print(f"[RECEIVED] {CLIENT} Message - {message_data}")
+
             elif int(message_type) == MessageType.VIDEO:
-                if message_data == START_FLAG:
-                # self._is_screen_stream = True
-                    self._show_other_video_stream = True # need to be realized in another method !!!!!!!!!
-                    threading.Thread(target=self.receive_video).start()
-                elif message_data == STOP_FLAG:
-                    self._show_other_video_stream = False
+                print(f"user_list: {self._users_in_room}")
+                msg = message_data.decode().split("|")
+                print(f"message - {msg}")
+                user = self.get_user_by_id(int(msg[1]))
+                print(f"user - {user}")
+                if user:
+                    if msg[0] == START_FLAG.decode():
+                        self._show_other_video_stream = True # need to be realized in another method !!!!!!!!!
+                        user.is_video_stream = True
+                        print(f"[INFO] {CLIENT} User {user.username} started video stream!")
+                        threading.Thread(target=self.receive_video).start()
+                    elif msg[0] == STOP_FLAG.decode():
+                        self._show_other_video_stream = False
+                        user.is_video_stream = False
+                        print(f"[INFO] {CLIENT} User {user.username} stopped video stream!")
+
             elif int(message_type) == MessageType.SCREENSHARE:
-                if message_data == START_FLAG:
-                # self._is_screen_stream = True
-                    self._show_other_screen_stream = True # need to be realized in another method !!!!!!!!!
-                    threading.Thread(target=self.receive_screen).start()
-                elif message_data == STOP_FLAG:
-                    self._show_other_screen_stream = False
+                msg = message_data.decode().split("|")
+                user = self.get_user_by_id(int(msg[1]))
+                if user:
+                    if msg[0] == START_FLAG.decode():
+                    # self._is_screen_stream = True
+                        self._show_other_screen_stream = True # need to be realized in another method !!!!!!!!!
+                        user.is_screen_stream = True
+                        print(f"[INFO] {CLIENT} User {user.username} started screen stream!")
+                        threading.Thread(target=self.receive_screen).start()
+                    elif msg[0] == STOP_FLAG.decode():
+                        self._show_other_screen_stream = False
+                        user.is_screen_stream = False
+                        print(f"[INFO] {CLIENT} User {user.username} stopped screen stream!")
+
             elif int(message_type) == MessageType.AUDIO:
-                if message_data == START_FLAG:
-                # self._is_screen_stream = True
-                    self._show_other_audio_stream = True # need to be realized in another method !!!!!!!!!
-                    threading.Thread(target=self.receive_audio).start()
-                elif message_data == STOP_FLAG:
-                    self._show_other_audio_stream = False
+                print(f"user_list: {self._users_in_room}")
+                msg = message_data.decode().split("|")
+                print(f"message - {msg}")
+                user = self.get_user_by_id(int(msg[1]))
+                print(f"user - {user}")
+                if user:
+                    print("user is True")
+                    if msg[0] == START_FLAG.decode():
+                        self._show_other_audio_stream = True # need to be realized in another method !!!!!!!!!
+                        user.is_voice_stream = True
+                        print(f"[INFO] {CLIENT} User {user.username} started voice stream!")
+                        threading.Thread(target=self.receive_audio).start()
+                    elif msg[0] == STOP_FLAG.decode():
+                        self._show_other_audio_stream = False
+                        user.is_screen_stream = False
+                        print(f"[INFO] {CLIENT} User {user.username} stopped voice stream!")
+
             elif int(message_type) == MessageType.CREATE_ROOM:
                 msg = message_data.decode().split("|")
                 if msg[0] == OK_FLAG.decode():
@@ -305,6 +359,7 @@ class Client(QObject):
                     print(f"[SUCCESS] {CLIENT}: The room was created successfully!")
                 elif msg[0] == ERROR_FLAG.decode():
                     print(f"[ERROR] {CLIENT}: Cant create the room")
+
             elif int(message_type) == MessageType.DELETE_ROOM:
                 msg = message_data.decode().split("|")
                 if msg[0] == OK_FLAG.decode():
@@ -313,24 +368,37 @@ class Client(QObject):
                     print(f"[SUCCESS] {CLIENT}: The room was deleted successfully!")
                 elif msg[0] == ERROR_FLAG.decode():
                     print(f"[ERROR] {CLIENT}: Cant delete the room")
+
             elif int(message_type) == MessageType.JOIN_ROOM:
                 msg = message_data.decode().split("|")
                 if msg[0] == OK_FLAG.decode():
                     self._active_room = msg[1]
                     print(f"[SUCCESS] {CLIENT}: U re in room {msg[1]}")
-
                 elif msg[0] == ERROR_FLAG.decode():
                     print(f"[ERROR] {CLIENT}: Cant create the room")
+
             elif int(message_type) == MessageType.GET_ROOM_LIST:
                 self._room_name_list = message_data.decode().split("|")
                 print(f"[INFO] {CLIENT} Room list: {self._room_name_list}")
+
             elif int(message_type) == MessageType.GET_CLIENT_LIST:
                 msg = message_data.decode().split("|")
                 if msg[0] == ERROR_FLAG.decode():
                     print(f"[INFO] {CLIENT} U re not in room")
                 else:
-                    self._users_in_room = message_data.decode().split("|")
+                    users = message_data.decode().split("|")
+                    for i in range(0, len(users), 2):
+                        user_id = int(users[i])
+                        username = users[i + 1]
+                        # Проверяем, есть ли пользователь уже в списке
+                        if not any(user.user_id == user_id for user in self._users_in_room):
+                            user = User(user_id, username)
+                            self._users_in_room.append(user)
+                    # self._users_in_room = message_data.decode().split("|")
                     print(f"[INFO] {CLIENT} Users list: {self._users_in_room}")
+                    for user in self._users_in_room:
+                        print(f"{user.user_id} - {user.username}")
+
             elif int(message_type) == MessageType.LOGIN_USER:
                 msg = message_data.decode().split("|")
                 if msg[0] == ERROR_FLAG.decode():
@@ -341,6 +409,7 @@ class Client(QObject):
                     self._username = msg[3]
                     self._is_authorized = True
                     print(f"[INFO] {CLIENT} U re welcome")
+
             elif int(message_type) == MessageType.CREATE_USER:
                 msg = message_data.decode().split("|")
                 if msg[0] == ERROR_FLAG.decode():
@@ -351,15 +420,17 @@ class Client(QObject):
                     self._username = msg[3]
                     self._is_authorized = True
                     print(f"[INFO] {CLIENT} U re welcome")
+
             elif int(message_type) == MessageType.LOGOUT_USER:
                 self._is_authorized = False
                 print(f"[INFO] {CLIENT} Logout status - {message_data.decode()}")
-            elif int(message_type) == MessageType.CHAT:
 
+            elif int(message_type) == MessageType.CHAT:
                 msg = message_data.decode().split("|")
                 chat_msg = ChatMessage(chat_message_id=int(msg[0]), time_str=msg[1], message=msg[2], user=msg[3])
                 self._chat.append(chat_msg)
                 print(f"[CHAT] {CLIENT} {chat_msg.user}: [{chat_msg.time_str}] {chat_msg.message}")
+
             elif int(message_type) == MessageType.UPDATE_CHAT:
                 msg = message_data.decode().split("|")
                 if msg[0] == STOP_FLAG.decode():

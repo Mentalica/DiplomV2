@@ -14,3 +14,4 @@ class MessageType:
     LOGIN_USER = 13
     LOGOUT_USER = 14
     UPDATE_CHAT = 15
+    # GET_USERS

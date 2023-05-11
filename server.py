@@ -320,7 +320,7 @@ class Server:
 
     def get_client_list(self, client: NetworkManager):
         if client.user.active_room:
-            msg = "|".join([user.username for user in client.user.active_room.get_user_list()])
+            msg = "|".join([f"{user.user_id}|{user.username}"for user in client.user.active_room.get_user_list()])
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.GET_CLIENT_LIST, msg.encode())
         else:
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.GET_CLIENT_LIST, ERROR_FLAG)
@@ -364,16 +364,29 @@ class Server:
         else:
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.DELETE_ROOM, ERROR_FLAG)
 
+    # def get_users_in_room(self, room):
+    #     return room.get_user_list()
+
     def join_room(self, message_data, client: NetworkManager):
         room = self.find_room_by_name(message_data.decode())
         if room:
             room.add_user_to_room(client.user)
             client.user.active_room = room
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.JOIN_ROOM, OK_FLAG+b"|"+message_data)
-            # ОТПРАВЛЯТЬ СООБЩЕНИЯ ДЛЯ СТАРТА СТРИМОВ
-            Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.AUDIO, START_FLAG)
-            Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, START_FLAG)
-            Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, START_FLAG)
+            # ОБНОВЛЕНИЕ ДАННЫХ КОМНАТЫ ДЛЯ ПОЛЬЗОВАТЕЛЯ
+
+            for user in room.get_user_list():
+                self.get_client_list(user.active_client)
+                if user.is_video_stream:
+                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO,
+                                             START_FLAG+b"|"+str(user.user_id).encode())
+                if user.is_voice_stream:
+                    print(f"start audio for {client.user.username}")
+                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.AUDIO,
+                                             START_FLAG+b"|"+str(user.user_id).encode())
+                if user.is_screen_stream:
+                    Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                             START_FLAG+b"|"+str(user.user_id).encode())
             self.update_user_chat(client)
         else:
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.JOIN_ROOM, ERROR_FLAG)
@@ -406,8 +419,9 @@ class Server:
     def screenshare_handler(self, client: NetworkManager):
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
         # for user in client.user.active_room.get_user_list():
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE, START_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                         START_FLAG+b"|"+str(client.user.user_id).encode())
         while client.user.is_screen_stream:
             data = Message.receive_large_message_udp(client.screen_udp_socket_server)
             # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
@@ -415,14 +429,15 @@ class Server:
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
                 # print(f"Sended to - {user}")
                 # print(f"data - {data}")
-                if client.user.user_id != cl.user.user_id:
+                if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                     threading.Thread(target=Message.send_large_message_udp, args=(cl.screen_udp_socket_server,
                                                                                   MessageType.SCREENSHARE, data[1],
                                                                                   cl.address,
                                                                                   cl.screen_udp_port_client,)).start()
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                         STOP_FLAG+b"|"+str(client.user.user_id).encode())
 
     def audio_handler(self, client: NetworkManager):
         # audio = AudioRecorder()
@@ -437,19 +452,21 @@ class Server:
         # audio.close()
 
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO, START_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO,
+                                         START_FLAG+b"|"+str(client.user.user_id).encode())
         while client.user.is_voice_stream:
             data = Message.receive_message_udp(client.voice_udp_socket_server)
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-                if client.user.user_id != cl.user.user_id:
+                if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
 
                     threading.Thread(target=Message.send_message_udp, args=(cl.voice_udp_socket_server,
                                                                             MessageType.AUDIO, data[1], cl.address,
                                                                             cl.voice_udp_port_client,)).start()
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO, STOP_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO,
+                                         STOP_FLAG+b"|"+str(client.user.user_id).encode())
 
     def video_handler(self, client: NetworkManager):
         # while self._is_video_stream:
@@ -467,19 +484,21 @@ class Server:
         # cv2.destroyAllWindows()
 
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO, START_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO,
+                                         START_FLAG+b"|"+str(client.user.user_id).encode())
         while client.user.is_video_stream:
             data = Message.receive_large_message_udp(client.video_udp_socket_server)
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-                if client.user.user_id != cl.user.user_id:
+                if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                     threading.Thread(target=Message.send_large_message_udp, args=(cl.video_udp_socket_server,
                                                                                   MessageType.VIDEO, data[1],
                                                                                   cl.address,
                                                                                   cl.video_udp_port_client,)).start()
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if client.user.user_id != cl.user.user_id:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
+            if client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO,
+                                         STOP_FLAG+b"|"+str(client.user.user_id).encode())
 
     def broadcast_message(self):
         pass
