@@ -344,7 +344,7 @@ class Client(QObject):
                         self._show_other_audio_stream = True # need to be realized in another method !!!!!!!!!
                         user.is_voice_stream = True
                         print(f"[INFO] {CLIENT} User {user.username} started voice stream!")
-                        threading.Thread(target=self.receive_audio).start()
+                        threading.Thread(target=self.receive_audio, args=(user.username)).start()
                     elif msg[0] == STOP_FLAG.decode():
                         self._show_other_audio_stream = False
                         user.is_screen_stream = False
@@ -427,7 +427,7 @@ class Client(QObject):
 
             elif int(message_type) == MessageType.CHAT:
                 msg = message_data.decode().split("|")
-                chat_msg = ChatMessage(chat_message_id=int(msg[0]), time_str=msg[1], message=msg[2], user=msg[3])
+                chat_msg = ChatMessage(chat_message_id=int(msg[0]), message_time=msg[1], message=msg[2], user=msg[3])
                 self._chat.append(chat_msg)
                 print(f"[CHAT] {CLIENT} {chat_msg.user}: [{chat_msg.time_str}] {chat_msg.message}")
 
@@ -444,7 +444,7 @@ class Client(QObject):
                     self._chat = []
                     print(f"[CHAT] {CLIENT} chat is empty")
                     continue
-                chat_msg = ChatMessage(chat_message_id=int(msg[0]), time_str=msg[1], message=msg[2], user=msg[3])
+                chat_msg = ChatMessage(chat_message_id=int(msg[0]), message_time=msg[1], message=msg[2], user=msg[3])
                 print(f"[CHAT] {CLIENT} append msg to chat - {chat_msg}")
                 self._chat.append(chat_msg)
 
@@ -459,7 +459,7 @@ class Client(QObject):
     def sort_chat(self):
         self._chat.sort(key=lambda msg: msg.chat_message_id)
 
-    def receive_audio(self):
+    def receive_audio(self, username):
         self._audio.out_stream_audio()
         while self._show_other_audio_stream:
             data = Message.receive_message_udp(self._voice_udp_client_socket)
@@ -470,7 +470,7 @@ class Client(QObject):
                 self._audio.out_stream.write(data)
         # self._audio.close_out_stream()
 
-    def receive_screen(self):
+    def receive_screen(self, client_id):
         while self._show_other_screen_stream:
             data = Message.receive_large_message_udp(self._screen_udp_client_socket)
             if data[0] == MessageType.SCREENSHARE:

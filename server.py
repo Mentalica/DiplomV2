@@ -18,6 +18,7 @@ from networkManager import NetworkManager
 from room import Room
 from user import User
 from chat import Chat, ChatMessage
+from database import Database
 
 
 class Server:
@@ -34,9 +35,12 @@ class Server:
         self._clients: List[NetworkManager] = []
         self._users: List[User] = []
         self._chats: List[Chat] = []
+        self._db = Database(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_DATABASE)
 
     def start(self):
         self._tcp_server_socket = self.create_tcp_socket(MAIN_TCP_SERVER_PORT, self._max_clients)
+        self._db.create_tables()
+        self._users, self._rooms, self._chats = self._db.get_all_data()
         # self.create_udp_socket()
 
     def stop(self):
@@ -235,6 +239,7 @@ class Server:
         room.chat = chat
         chat.room = room
         self._chats.append(chat)
+        self._db.insert_chat(chat)
         print(f"[CHAT-created] {SERVER} room_id - {chat.chat_id}")
         return chat
 
@@ -243,7 +248,8 @@ class Server:
         chat = client.user.active_room.chat
         # else:
         #     chat = self.create_chat(client.user.active_room)
-        chat_msg = ChatMessage(chat_message_id=chat.get_msg_chat_id(), message=message_data.decode(), user=client.user)
+        chat_msg = ChatMessage(chat_id=chat.chat_id, chat_message_id=chat.get_msg_chat_id(), message=message_data.decode(), user=client.user)
+        self._db.insert_chat_message(chat_msg)
         chat.add_message_to_chat(chat_msg)
         msg_to_send = "|".join(chat_msg.get_info_list())
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
@@ -266,18 +272,22 @@ class Server:
                                    msg_to_send.encode(),)).start()
         Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.UPDATE_CHAT, STOP_FLAG)
 
+    def get_new_user_id(self):
+        if len(self._users) == 0:
+            return 0
+        else:
+            return self._users[-1].user_id + 1
+
     def create_user(self, message_data, client: NetworkManager):
         msg = message_data.decode().split("|")
         user = self.find_user_by_email(msg[0])
         if user and msg[0] and msg[1] and msg[2]:
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.CREATE_USER, ERROR_FLAG)
             return
-        if len(self._users) == 0:
-            user_id = 0
-        else:
-            user_id = self._users[-1].user_id + 1
+        user_id = self.get_new_user_id()
         user = User(user_id=user_id, email=msg[0], password=msg[1], username=msg[2], active_client=client)
         self._users.append(user)
+        self._db.insert_user(user)
         client.user = user
         user.is_online = True
         msg_to_send = "|".join([user.email, user.password, user.username])
@@ -303,6 +313,7 @@ class Server:
             client.user = user
             user.active_client = client
             user.is_online = True
+
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.LOGIN_USER,
                                      OK_FLAG + b'|' + msg_to_send.encode())
         else:
@@ -347,6 +358,7 @@ class Server:
         self._rooms.append(room)
         client.user.active_room = room
         self.create_chat(room)
+        self._db.insert_room(room)
         print(f"[ROOM-CREATE] {SERVER} room - {room}\nroom list - {self._rooms}\nclient active room - {client.user.active_room}")
         # room.add_user_to_room(client)
         Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.CREATE_ROOM, OK_FLAG+b"|"+message_data)

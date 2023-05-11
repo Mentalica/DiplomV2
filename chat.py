@@ -4,10 +4,10 @@ from chatMessage import ChatMessage
 
 
 class Chat:
-    def __init__(self, chat_id=None, room=None):
+    def __init__(self, chat_id=None, room=None, chat_messages=[]):
         self._chat_id = chat_id
         self._room = room
-        self._chat_messages: List[ChatMessage] = []
+        self._chat_messages: List[ChatMessage] = chat_messages
 
     def get_msg_chat_id(self):
         if len(self._chat_messages) == 0:

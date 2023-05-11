@@ -2,28 +2,28 @@ import datetime
 
 
 class ChatMessage:
-    def __init__(self, chat_message_id=None, message=None, user=None, time_str=None):
+    def __init__(self, chat_id=None, chat_message_id=None, message=None, user=None,
+                 message_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M")):
+        self._chat_id = chat_id
         self._chat_message_id = chat_message_id
-        self._time_str = time_str
-        self._message_time = None
-        self._message_time = datetime.datetime.now()
+        self._message_time = message_time
         self._message = message
         self._user = user
 
     def get_info_list(self):
-        return [str(self._chat_message_id), self._message_time.strftime("%Y-%m-%d %H:%M"), self._message,
+        return [str(self._chat_message_id), self._message_time, self._message,
                 self._user.username]
 
     def get_info_list_client(self):
-        return f"{self._user}: [{self._time_str}] {self._message}"
+        return f"{self._user}: [{self._message_time}] {self._message}"
 
     @property
-    def time_str(self):
-        return self._time_str
+    def chat_id(self):
+        return self._chat_id
 
-    @time_str.setter
-    def time_str(self, value):
-        self._time_str = value
+    @chat_id.setter
+    def chat_id(self, value):
+        self._chat_id = value
 
     @property
     def chat_message_id(self):
