@@ -12,10 +12,10 @@ class ChatMessage:
 
     def get_info_list(self):
         return [str(self._chat_message_id), self._message_time, self._message,
-                self._user.username]
+                str(self._user.user_id)]
 
     def get_info_list_client(self):
-        return f"{self._user}: [{self._message_time}] {self._message}"
+        return f"{self._user.username}: [{self._message_time}] {self._message}"
 
     @property
     def chat_id(self):
@@ -35,7 +35,7 @@ class ChatMessage:
 
     @property
     def message_time(self):
-        return self._message_time.strftime("%Y-%m-%d %H:%M")
+        return self._message_time
 
     @property
     def message(self):

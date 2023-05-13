@@ -34,9 +34,13 @@ class Room:
 
 
     def check_user(self, user):
+        print("check_user")
+        print(self._user_list)
         for user_i in self._user_list:
-            if user_i == user:
-                self._user_list.remove(user)
+            print(f"User-i id {user_i.user_id}")
+            print(f"User id {user.user_id}")
+            if user_i.user_id == user.user_id:
+                print(f"user - {user_i.user_id}, user {user.user_id}")
                 return True
         return False
 

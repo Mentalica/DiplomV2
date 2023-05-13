@@ -66,11 +66,31 @@ class Database:
         """)
         cursor.close()
 
+    def create_room_user_table(self):
+        cursor = self.connection.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS room_user (
+                room_id INT,
+                user_id INT
+            )
+        """)
+        cursor.close()
+
+    def insert_room_user(self, room_id, user_id):
+        cursor = self.connection.cursor()
+        query = "INSERT IGNORE INTO room_user (room_id, user_id) VALUES (%s, %s)"
+        values = (room_id, user_id)
+        cursor.execute(query, values)
+        self.connection.commit()
+        print(f"Room - {room_id}, User {user_id} inserted into database with ID: {cursor.lastrowid}")
+        cursor.close()
+
     def create_tables(self):
         self.create_chats_table()
         self.create_rooms_table()
         self.create_chat_messages_table()
         self.create_users_table()
+        self.create_room_user_table()
 
     def insert_user(self, user: User):
         cursor = self.connection.cursor()
@@ -160,7 +180,7 @@ class Database:
         for row in result:
             chat_id, chat_message_id, message_time, message, user_id = row
             chat_msg = ChatMessage(chat_id=chat_id, chat_message_id=chat_message_id, message_time=message_time,
-                                   message=message, user=self.find_user_by_id(user_id))
+                                   message=message, user=self.find_user_by_id(users, user_id))
             chat_msgs.append(chat_msg)
         chat_msgs_cursor.close()
 
@@ -173,7 +193,17 @@ class Database:
         chats = []
         for row in result:
             room_id, room_name, owner_id, chat_id = row
-            room = Room(room_id=room_id, room_name=room_name, owner=self.find_user_by_id(owner_id))
+            room = Room(room_id=room_id, room_name=room_name, owner=self.find_user_by_id(users, owner_id))
+
+            room_user_query = "SELECT room_id, user_id FROM room_user WHERE room_id = %s"
+            room_user_cursor = self.connection.cursor()
+            room_user_cursor.execute(room_user_query, (room_id,))
+            room_user_result = room_user_cursor.fetchall()
+            for room_user in room_user_result:
+                room_id, user_id = room_user
+                print(user_id)
+                room.add_user_to_room(self.find_user_by_id(users, user_id))
+                room.add_room_to_user(self.find_user_by_id(users, user_id))
 
             chat_query = "SELECT chat_id, room_id FROM chats WHERE chat_id = %s"
             chat_cursor = self.connection.cursor()
