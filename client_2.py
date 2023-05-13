@@ -13,7 +13,7 @@ import pyaudio
 from consts import *
 from chatMessage import ChatMessage
 from user import User
-from message import Message
+from message_2 import Message
 from messageType import MessageType
 from audioRecorder import AudioRecorder
 
@@ -350,7 +350,7 @@ class Client(QObject):
     def handle_screen_stream(self):
         with mss.mss() as sct:
             # Можно выбрать конкретный монитор, указав его номер в параметре monitor
-            monitor = sct.monitors[1]
+            monitor = sct.monitors[2]
             width = monitor["width"]
             height = monitor["height"]
             # Формируем словарь с параметрами для создания окна
@@ -629,8 +629,7 @@ class Client(QObject):
     def receive_audio(self, username):
         self._audio.out_stream_audio()
         while self._show_other_audio_stream:
-            with self.lock:
-                data = Message.receive_message_udp(self._voice_udp_client_socket)
+            data = Message.receive_message_udp(self._voice_udp_client_socket)
             if data[0] == MessageType.AUDIO:
                 # print(f"[AUDIO_HANDLER] {SERVER}: {data}")
                 data = zlib.decompress(data[1])
@@ -641,8 +640,7 @@ class Client(QObject):
     def receive_screen(self, user_id):
         while self._show_other_screen_stream:
             # data = Message.receive_large_message_udp(self._screen_udp_client_socket)
-            with self.lock:
-                data = Message.receive_large_message_udp_by_id(self._screen_udp_client_socket, user_id)
+            data = Message.receive_large_message_udp_by_id(self._screen_udp_client_socket, user_id)
             # if data[0] == MessageType.SCREENSHARE:
             try:
                 # попытаться выполнить декодирование изображения
@@ -663,8 +661,7 @@ class Client(QObject):
     def receive_video(self, user_id):
         while self._show_other_video_stream:
             # data = Message.receive_large_message_udp(self._video_udp_client_socket)
-            with self.lock:
-                data = Message.receive_large_message_udp_by_id(self._video_udp_client_socket, user_id)
+            data = Message.receive_large_message_udp_by_id(self._video_udp_client_socket, user_id)
             # print(data)
             try:
                 # попытаться выполнить декодирование изображения

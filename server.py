@@ -273,7 +273,7 @@ class Server:
             msg_to_send = "|".join(msg.get_info_list())
             print(msg_to_send)
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.UPDATE_CHAT,
-                                   msg_to_send.encode())
+                                     msg_to_send.encode())
         Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.UPDATE_CHAT, STOP_FLAG)
 
     def get_new_user_id(self):
@@ -455,7 +455,8 @@ class Server:
                                          START_FLAG + b"|" + str(client.user.user_id).encode())
         while client.user.is_screen_stream:
             # data = Message.receive_large_message_udp(client.screen_udp_socket_server)
-            data = Message.receive_large_message_udp_by_id(client.screen_udp_socket_server, client.cmd_tcp_port_server)
+            with self.lock:
+                data = Message.receive_large_message_udp_by_id(client.screen_udp_socket_server, client.cmd_tcp_port_server)
             # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
             # for user in client.user.active_room.get_user_list():
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
@@ -466,10 +467,11 @@ class Server:
                     #                                                               MessageType.SCREENSHARE, data[1],
                     #                                                               cl.address,
                     #                                                               cl.screen_udp_port_client)
-                    Message.send_large_message_udp_by_id(cl.screen_udp_socket_server,
-                                                   data[0],
-                                                   cl.address,
-                                                   cl.screen_udp_port_client, client.user.user_id)
+                    with self.lock:
+                        Message.send_large_message_udp_by_id(cl.screen_udp_socket_server,
+                                                             data[0],
+                                                             cl.address,
+                                                             cl.screen_udp_port_client, client.user.user_id)
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
@@ -481,12 +483,14 @@ class Server:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO,
                                          START_FLAG + b"|" + str(client.user.user_id).encode())
         while client.user.is_voice_stream:
-            data = Message.receive_message_udp(client.voice_udp_socket_server)
+            with self.lock:
+                data = Message.receive_message_udp(client.voice_udp_socket_server)
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
                 if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
-                    Message.send_message_udp(cl.voice_udp_socket_server,
-                                             MessageType.AUDIO, data[1], cl.address,
-                                             cl.voice_udp_port_client)
+                    with self.lock:
+                        Message.send_message_udp(cl.voice_udp_socket_server,
+                                                 MessageType.AUDIO, data[1], cl.address,
+                                                 cl.voice_udp_port_client)
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO,
@@ -499,18 +503,20 @@ class Server:
                                          START_FLAG + b"|" + str(client.user.user_id).encode())
         while client.user.is_video_stream:
             # data = Message.receive_large_message_udp(client.video_udp_socket_server)
-            data = Message.receive_large_message_udp_by_id(client.video_udp_socket_server, client.cmd_tcp_port_server)
-            print(data)
+            with self.lock:
+                data = Message.receive_large_message_udp_by_id(client.video_udp_socket_server, client.cmd_tcp_port_server)
+            # print(data)
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
                 if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                     # Message.send_large_message_udp(cl.video_udp_socket_server,
                     #                                MessageType.VIDEO, data[1],
                     #                                cl.address,
                     #                                cl.video_udp_port_client)
-                    Message.send_large_message_udp_by_id(cl.video_udp_socket_server,
-                                                   data[0],
-                                                   cl.address,
-                                                   cl.video_udp_port_client, client.user.user_id)
+                    with self.lock:
+                        Message.send_large_message_udp_by_id(cl.video_udp_socket_server,
+                                                             data[0],
+                                                             cl.address,
+                                                             cl.video_udp_port_client, client.user.user_id)
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO,

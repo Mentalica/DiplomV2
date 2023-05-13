@@ -108,7 +108,7 @@ class Message:
         message_length = len(message_data)
         num_chunks = (message_length // chunk_size)
         chunks = [packed_message[i:i + chunk_size] for i in range(0, message_length, chunk_size)]
-        print(f"ID: {id}, send_size: {len(message_data)}, data:\n{num_chunks}")
+
         for i, chunk in enumerate(chunks):
             # start_flag = i == 0
             # end_flag = i == num_chunks - 1
@@ -118,13 +118,11 @@ class Message:
     @staticmethod
     def receive_large_message_udp_by_id(sock: socket.socket, id, chunk_size=MAX_BYTES_UDP):
         address_id = None
-        chunks_size = None
         if id in received_msgs:  # Если уже были получены chunks
             # print(f"ID: {id}. received chunks - {received_msgs[id][0]}, requirements chunks size - {received_msgs[id][1]}")
             if received_msgs[id][0] == received_msgs[id][1]:  # Если chunks уже все готовы, то отправляем данные
                 sorted_chunks = [received_msgs[id][2][i] for i in sorted(received_msgs[id][2])]
                 address = received_msgs[id][3]
-                print(f"DCIT: {received_msgs}")
                 del received_msgs[id]
                 message_data = b"".join(sorted_chunks)
                 return message_data, address
@@ -155,20 +153,18 @@ class Message:
                 # Данные были дополнены, теперь возвращаем
                 sorted_chunks = [received_msgs[id][2][i] for i in sorted(received_msgs[id][2])]
                 address = received_msgs[id][3]
-                print(f"DCIT: {received_msgs}")
                 del received_msgs[id]
                 message_data = b"".join(sorted_chunks)
                 return message_data, address
         else: # Данных вообще не было, получаем все, попутно не свои добавляя в словарь
             chunk_header, address = sock.recvfrom(chunk_size)
             num_chunks, chunk_index, recv_id = struct.unpack("!III", chunk_header[:12])
-            print(f"num_chunks: {num_chunks}. chunk_index - {chunk_index}, recv_id - {recv_id}")
+            # print(f"num_chunks: {num_chunks}. chunk_index - {chunk_index}, recv_id - {recv_id}")
             message_data = {}
             if recv_id == id:  # В прочитанном сообщении нужные нам данные
                 message_data[chunk_index] = chunk_header[12:]
 
                 for i in range(0, num_chunks):  # Дочитываем все chunks
-                    chunks_size = i
                     chunk_header, address = sock.recvfrom(chunk_size)
                     num_chunks_tmp, chunk_index, recv_id_tmp = struct.unpack("!III", chunk_header[:12])
                     if recv_id_tmp == id:  # При считывании новых данных, данные соответствуют требуемым нам
@@ -189,10 +185,5 @@ class Message:
 
             # Данные были дополнены, теперь возвращаем
             sorted_chunks = [message_data[i] for i in sorted(message_data)]
-            last_chunk = sorted_chunks[-1]
-            last_chunk = last_chunk[:chunks_size * 12]
-            sorted_chunks[-1] = last_chunk
             message_data = b"".join(sorted_chunks)
-            print(f"ID: {id}, recv_size: {len(message_data)}, data:\n{chunks_size}")
-            # print(f"DCIT: {received_msgs}")
             return message_data, address_id
