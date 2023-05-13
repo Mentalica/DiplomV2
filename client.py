@@ -46,6 +46,7 @@ class Client(QObject):
 
     def __init__(self, parent=None):
         super().__init__()
+        self._udp_id_to_send = None
         self._main_tcp_client_socket = None
         # client sockets
         self._cmd_tcp_client_socket = None
@@ -94,6 +95,7 @@ class Client(QObject):
         print(f"[RECEIVED] {CLIENT}: ports - {ports}")
         if msg_type == MessageType.ECHO:
             self._cmd_tcp_server_port = int(ports[0])
+            self._udp_id_to_send = int(ports[0])
             self._cmd_tcp_client_socket = self.connect_to_tcp_server(self._cmd_tcp_server_port)
             self._screen_udp_server_port = int(ports[1])
             self._screen_udp_client_socket = self.connect_to_udp_server(self._screen_udp_server_port)
@@ -362,9 +364,12 @@ class Client(QObject):
                 # Сжимаем изображение в формат JPEG
                 _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
-                Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE,
-                                               buffer.tobytes(),
-                                               MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port)
+                # Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE,
+                #                                buffer.tobytes(),
+                #                                MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port)
+                Message.send_large_message_udp_by_id(self._screen_udp_client_socket, buffer.tobytes(),
+                                                     MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port,
+                                                     self._udp_id_to_send)
                 # Отправляем изображение по сокету
                 # sock.sendall(buffer)
                 # Ждем 0.1 секунду перед следующим снимком экрана
@@ -393,9 +398,13 @@ class Client(QObject):
 
             encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
-            Message.send_large_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(),
+            # Message.send_large_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(),
+            #                                MAIN_SERVER_ADDRESS_CL,
+            #                                self._video_udp_server_port)
+            # print(buffer.tobytes())
+            Message.send_large_message_udp_by_id(self._video_udp_client_socket,  buffer.tobytes(),
                                            MAIN_SERVER_ADDRESS_CL,
-                                           self._video_udp_server_port)
+                                           self._video_udp_server_port, self._udp_id_to_send)
         capture.release()
 
     def handle_audio_cmd(self):
@@ -630,12 +639,13 @@ class Client(QObject):
 
     def receive_screen(self, user_id):
         while self._show_other_screen_stream:
-            data = Message.receive_large_message_udp(self._screen_udp_client_socket)
-            if data[0] == MessageType.SCREENSHARE:
-                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-                # self.frame_received.emit(frame)
-                if frame.any():
-                    self.update_screen_frame.emit(frame, user_id)
+            # data = Message.receive_large_message_udp(self._screen_udp_client_socket)
+            data = Message.receive_large_message_udp_by_id(self._screen_udp_client_socket, user_id)
+            # if data[0] == MessageType.SCREENSHARE:
+            frame = cv2.imdecode(np.frombuffer(data[0], dtype=np.uint8), cv2.IMREAD_COLOR)
+            # self.frame_received.emit(frame)
+            if frame.any():
+                self.update_screen_frame.emit(frame, user_id)
                 # cv2.imshow('Video Frame', frame)
                 # if cv2.waitKey(1) == ord('q'):
                 # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
@@ -644,19 +654,19 @@ class Client(QObject):
 
     def receive_video(self, user_id):
         while self._show_other_video_stream:
-            with self.lock:
-                data = Message.receive_large_message_udp(self._video_udp_client_socket)
-            if data[0] == MessageType.VIDEO:
-                frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-                # self.frame_received.emit(frame)
-                if frame.any():
-                    self.update_video_frame.emit(frame, user_id)
-                # print(frame)
-                # cv2.imshow('Video Frame', frame)
-                # if cv2.waitKey(1) == ord('q'):
-                #     Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
-                # break
-        # cv2.destroyAllWindows()
+            # data = Message.receive_large_message_udp(self._video_udp_client_socket)
+            data = Message.receive_large_message_udp_by_id(self._video_udp_client_socket, user_id)
+            # print(data)
+            frame = cv2.imdecode(np.frombuffer(data[0], dtype=np.uint8), cv2.IMREAD_COLOR)
+            # self.frame_received.emit(frame)
+            if frame.any():
+                self.update_video_frame.emit(frame, user_id)
+                    # print(frame)
+                    # cv2.imshow('Video Frame', frame)
+                    # if cv2.waitKey(1) == ord('q'):
+                    #     Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.VIDEO, STOP_FLAG)
+                    # break
+            # cv2.destroyAllWindows()
 
     @property
     def username(self):
