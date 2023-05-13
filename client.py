@@ -24,6 +24,8 @@ from PyQt5.QtWidgets import QWidget
 class Client(QObject):
     toggle_stream = pyqtSignal(bool)
     frame_received = pyqtSignal(np.ndarray)
+    update_video_frame = pyqtSignal(np.ndarray, int)
+    update_screen_frame = pyqtSignal(np.ndarray, int)
 
     update_room_list = pyqtSignal(list)
     update_username = pyqtSignal(str)
@@ -38,8 +40,8 @@ class Client(QObject):
     flag_is_video_stream = pyqtSignal(bool)
     flag_is_screen_stream = pyqtSignal(bool)
     user_is_voice_stream = pyqtSignal(bool, str)
-    user_is_video_stream = pyqtSignal(bool, str)
-    user_is_screen_stream = pyqtSignal(bool, str)
+    user_is_video_stream = pyqtSignal(bool, str, int)
+    user_is_screen_stream = pyqtSignal(bool, str, int)
 
 
     def __init__(self, parent=None):
@@ -77,6 +79,8 @@ class Client(QObject):
         self._password = None
 
         self._chat: List[ChatMessage] = []
+
+        self.lock = threading.Lock()
 
         # self._audio_in = self._audio.in_stream_audio()
         # self._audio_out = self._audio.out_stream_audio()
@@ -441,12 +445,12 @@ class Client(QObject):
                 if user:
                     if msg[0] == START_FLAG.decode():
                         user.is_video_stream = True
-                        self.user_is_video_stream.emit(True, user.username)
+                        self.user_is_video_stream.emit(True, user.username, user.user_id)
                         print(f"[INFO] {CLIENT} User {user.username} started video stream!")
-                        threading.Thread(target=self.receive_video).start()
+                        threading.Thread(target=self.receive_video, args=(user.user_id,)).start()
                     elif msg[0] == STOP_FLAG.decode():
                         user.is_video_stream = False
-                        self.user_is_video_stream.emit(False, user.username)
+                        self.user_is_video_stream.emit(False, user.username, user.user_id)
                         print(f"[INFO] {CLIENT} User {user.username} stopped video stream!")
 
             elif int(message_type) == MessageType.SCREENSHARE:
@@ -455,12 +459,12 @@ class Client(QObject):
                 if user:
                     if msg[0] == START_FLAG.decode():
                         # self._is_screen_stream = True
-                        self.user_is_screen_stream.emit(True, user.username)
+                        self.user_is_screen_stream.emit(True, user.username, user.user_id)
                         user.is_screen_stream = True
                         print(f"[INFO] {CLIENT} User {user.username} started screen stream!")
-                        threading.Thread(target=self.receive_screen, args=(user.username,)).start()
+                        threading.Thread(target=self.receive_screen, args=(user.user_id,)).start()
                     elif msg[0] == STOP_FLAG.decode():
-                        self.user_is_video_stream.emit(False, user.username)
+                        self.user_is_screen_stream.emit(False, user.username, user.user_id)
                         user.is_screen_stream = False
                         print(f"[INFO] {CLIENT} User {user.username} stopped screen stream!")
 
@@ -473,12 +477,12 @@ class Client(QObject):
                 if user:
                     print("user is True")
                     if msg[0] == START_FLAG.decode():
-                        self.user_is_video_stream.emit(True, user.username)
+                        self.user_is_voice_stream.emit(True, user.username)
                         user.is_voice_stream = True
                         print(f"[INFO] {CLIENT} User {user.username} started voice stream!")
                         threading.Thread(target=self.receive_audio, args=(user.username,)).start()
                     elif msg[0] == STOP_FLAG.decode():
-                        self.user_is_video_stream.emit(False, user.username)
+                        self.user_is_voice_stream.emit(False, user.username)
                         user.is_screen_stream = False
                         print(f"[INFO] {CLIENT} User {user.username} stopped voice stream!")
 
@@ -624,24 +628,29 @@ class Client(QObject):
                 self._audio.out_stream.write(data)
         # self._audio.close_out_stream()
 
-    def receive_screen(self, client_id):
+    def receive_screen(self, user_id):
         while self._show_other_screen_stream:
             data = Message.receive_large_message_udp(self._screen_udp_client_socket)
             if data[0] == MessageType.SCREENSHARE:
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-                self.frame_received.emit(frame)
+                # self.frame_received.emit(frame)
+                if frame.any():
+                    self.update_screen_frame.emit(frame, user_id)
                 # cv2.imshow('Video Frame', frame)
                 # if cv2.waitKey(1) == ord('q'):
                 # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
                 #     break
         # cv2.destroyAllWindows()
 
-    def receive_video(self):
+    def receive_video(self, user_id):
         while self._show_other_video_stream:
-            data = Message.receive_large_message_udp(self._video_udp_client_socket)
+            with self.lock:
+                data = Message.receive_large_message_udp(self._video_udp_client_socket)
             if data[0] == MessageType.VIDEO:
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-                self.frame_received.emit(frame)
+                # self.frame_received.emit(frame)
+                if frame.any():
+                    self.update_video_frame.emit(frame, user_id)
                 # print(frame)
                 # cv2.imshow('Video Frame', frame)
                 # if cv2.waitKey(1) == ord('q'):

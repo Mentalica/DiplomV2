@@ -334,50 +334,92 @@ class UserListWidget(QWidget):
 
 
 class VideoWidget(QLabel):
-    def __init__(self, client: Client, username):
+    def __init__(self, client: Client, username, id):
         super().__init__()
         self.username = username
         self.client = client
+        self.id = id
         self.setFixedSize(QSize(320, 240))  # Устанавливаем размер видео-окна
         self.setAlignment(Qt.AlignCenter)  # Центрируем видео в окне
-        self.client.frame_received.connect(self.update_frame)
+        self.setScaledContents(True)
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Добавляем виджет с именем пользователя
+        self.username_label = QLabel(self)
+        self.username_label.setText(username)
+        self.username_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.username_label)
+
+        # Устанавливаем layout виджета
+        self.setLayout(layout)
+
+        self.client.update_video_frame.connect(self.update_frame)
 
 
-    def update_frame(self, frame):
-        # Конвертирование numpy-массива в изображение PyQt5
-        q_image = QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
-        q_pixmap = QPixmap.fromImage(q_image)
-        # Обновление виджета для отображения видео
-        self.setPixmap(q_pixmap)
+    def update_frame(self, frame, id):
+        if self.id == id:
+            # Конвертирование numpy-массива в изображение PyQt5
+            q_image = QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+            q_pixmap = QPixmap.fromImage(q_image)
+            # Обновление виджета для отображения видео
+            self.setPixmap(q_pixmap)
+
+class ScreenWidget(QLabel):
+    def __init__(self, client: Client, username, id):
+        super().__init__()
+        self.username = username
+        self.client = client
+        self.id = id
+        self.setFixedSize(QSize(320, 240))  # Устанавливаем размер видео-окна
+        self.setAlignment(Qt.AlignCenter)  # Центрируем видео в окне
+        self.setScaledContents(True)
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Добавляем виджет с именем пользователя
+        self.username_label = QLabel(self)
+        self.username_label.setText(username)
+        self.username_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.username_label)
+
+        # Устанавливаем layout виджета
+        self.setLayout(layout)
+        self.client.update_screen_frame.connect(self.update_frame)
 
 
-class WarapperVideoWidget(QWidget):
+    def update_frame(self, frame, id):
+        if self.id == id:
+            # Конвертирование numpy-массива в изображение PyQt5
+            q_image = QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_BGR888)
+            q_pixmap = QPixmap.fromImage(q_image)
+            # Обновление виджета для отображения видео
+            self.setPixmap(q_pixmap)
+
+class WrapperVideoWidget(QWidget):
     def __init__(self, client: Client):
         super().__init__()
         self.client = client
-        # self.setText("Switch Video")
-        # self.clicked.connect(self.switch_video)
-        self.current_video_index = None
+        self.current_video_index = 0
         self.video_widgets = []
-        self.screen_widgets = []
+
         self.stacked_widget = QStackedWidget(self)
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.stacked_widget)
         self.client.user_is_video_stream.connect(self.add_video_widget_controller)
-        self.client.user_is_screen_stream.connect(self.add_screen_widget_controller)
 
-        next_button = QPushButton("Следующее видео", self)
-        next_button.clicked.connect(self.show_next_video)
-        self.layout().addWidget(next_button)
+        next_button_video = QPushButton("Следующее видео", self)
+        next_button_video.clicked.connect(self.show_next_video)
+        self.layout().addWidget(next_button_video)
 
-        prev_button = QPushButton("Предыдущее видео", self)
-        prev_button.clicked.connect(self.show_prev_video)
-        self.layout().addWidget(prev_button)
+        prev_button_video = QPushButton("Предыдущее видео", self)
+        prev_button_video.clicked.connect(self.show_prev_video)
+        self.layout().addWidget(prev_button_video)
 
-    def add_video_widget_controller(self, flag, name):
+    def add_video_widget_controller(self, flag, name, user_id):
         if flag:
             # Add video
-            video_widget = VideoWidget(self.client, name)
+            video_widget = VideoWidget(self.client, name, user_id)
             self.video_widgets.append(video_widget)
             self.stacked_widget.addWidget(video_widget)  # добавляем виджет на stacked widget
         else:
@@ -387,18 +429,7 @@ class WarapperVideoWidget(QWidget):
                     self.video_widgets.remove(video_widget)
                     self.stacked_widget.removeWidget(video_widget)  # удаляем виджет со stacked widget
 
-    def add_screen_widget_controller(self, flag, name):
-        if flag:
-            # Add video
-            screen_widget = VideoWidget(self.client, name)
-            self.screen_widgets.append(screen_widget)
-            self.stacked_widget.addWidget(screen_widget)  # добавляем виджет на stacked widget
-        else:
-            # Remove video
-            for screen_widget in self.screen_widgets:
-                if screen_widget.username == name:
-                    self.screen_widgets.remove(screen_widget)
-                    self.stacked_widget.removeWidget(screen_widget)  # удаляем виджет со stacked widget
+
 
     def show_next_video(self):
         if self.video_widgets:
@@ -416,6 +447,8 @@ class WarapperVideoWidget(QWidget):
                 self.current_video_index = (self.current_video_index - 1) % len(self.video_widgets)
             self.stacked_widget.setCurrentIndex(self.current_video_index)
 
+
+
     # def switch_video(self, index):
     #     if 0 <= index < len(self.video_widgets):
     #         # Скрытие предыдущего видео
@@ -424,6 +457,57 @@ class WarapperVideoWidget(QWidget):
     #         # Отображение выбранного видео
     #         self.current_video_index = index
     #         self.video_widgets[self.current_video_index].show()
+
+
+
+class WrapperScreenWidget(QWidget):
+    def __init__(self, client: Client):
+        super().__init__()
+        self.client = client
+        self.current_screen_index = 0
+        self.screen_widgets = []
+
+        self.stacked_widget = QStackedWidget(self)
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.stacked_widget)
+        self.client.user_is_screen_stream.connect(self.add_screen_widget_controller)
+
+        next_button_screen = QPushButton("Следующее экран", self)
+        next_button_screen.clicked.connect(self.show_next_screen)
+        self.layout().addWidget(next_button_screen)
+
+        prev_button_screen = QPushButton("Предыдущее экран", self)
+        prev_button_screen.clicked.connect(self.show_prev_screen)
+        self.layout().addWidget(prev_button_screen)
+
+    def add_screen_widget_controller(self, flag, name, user_id):
+        if flag:
+            # Add video
+            screen_widget = ScreenWidget(self.client, name, user_id)
+            self.screen_widgets.append(screen_widget)
+            self.stacked_widget.addWidget(screen_widget)  # добавляем виджет на stacked widget
+        else:
+            # Remove video
+            for screen_widget in self.screen_widgets:
+                if screen_widget.username == name:
+                    self.screen_widgets.remove(screen_widget)
+                    self.stacked_widget.removeWidget(screen_widget)  # удаляем виджет со stacked widget
+
+    def show_next_screen(self):
+        if self.screen_widgets:
+            if self.current_screen_index is None:
+                self.current_screen_index = 0
+            else:
+                self.current_screen_index = (self.current_screen_index + 1) % len(self.screen_widgets)
+            self.stacked_widget.setCurrentIndex(self.current_screen_index)
+
+    def show_prev_screen(self):
+        if self.screen_widgets:
+            if self.current_screen_index is None:
+                self.current_screen_index = 0
+            else:
+                self.current_screen_index = (self.current_screen_index - 1) % len(self.screen_widgets)
+            self.stacked_widget.setCurrentIndex(self.current_screen_index)
 
 class ExitRoomWidget(QWidget):
     def __init__(self, client: Client):
@@ -503,14 +587,20 @@ class MainRoomPageWidget(QWidget):
 
         user_list_widget = UserListWidget(client)
         chat_widget = ChatWidget(client)
-        video_widget = WarapperVideoWidget(client)
+        video_widget = WrapperVideoWidget(client)
+        screen_widget = WrapperScreenWidget(client)
         control_widget = ControlWidget(client)
         exit_room_widget = ExitRoomWidget(client)
 
         layout = QVBoxLayout()
         layout.addWidget(user_list_widget)
         layout.addWidget(chat_widget)
-        layout.addWidget(video_widget)
+
+        video_screen_layout = QHBoxLayout()
+        video_screen_layout.addWidget(video_widget)
+        video_screen_layout.addWidget(screen_widget)
+        layout.addLayout(video_screen_layout)
+
         layout.addWidget(control_widget)
         layout.addWidget(exit_room_widget)
         self.setLayout(layout)
