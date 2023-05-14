@@ -114,6 +114,7 @@ class Server:
             data_to_send = "|".join([str(tcp_client_port), str(udp_screen_port), str(udp_voice_port),
                                      str(udp_video_port)])
             print(f"[smg to send] {SERVER}: ({type(data_to_send)}) {data_to_send}")
+            curr_port += 1
             # Send available ports
             Message.send_message_tcp(client_socket, MessageType.ECHO, data_to_send.encode())
 

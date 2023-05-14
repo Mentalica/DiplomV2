@@ -102,21 +102,22 @@ class Message:
 
     @staticmethod
     def send_large_message_udp_by_id(sock: socket.socket, message_data: bytes, dest_addr: str,
-                                     dest_port: int, id, chunk_size=MAX_BYTES_UDP - 100):
+                                     dest_port: int, id, chunk_size=MAX_BYTES_UDP):
 
         packed_message = struct.pack(f"!{len(message_data)}s", message_data)
         message_length = len(message_data)
         num_chunks = (message_length // chunk_size)
         chunks = [packed_message[i:i + chunk_size] for i in range(0, message_length, chunk_size)]
-        print(f"ID: {id}, send_size: {len(message_data)}, data:\n{num_chunks}")
+        print(f"ID: {id}, send_size: {len(message_data)}, data: {num_chunks}")
         for i, chunk in enumerate(chunks):
             # start_flag = i == 0
             # end_flag = i == num_chunks - 1
+            # print(i)
             chunk_header = struct.pack("!III", num_chunks, i, id)
             sock.sendto(chunk_header + chunk, (dest_addr, dest_port))
 
     @staticmethod
-    def receive_large_message_udp_by_id(sock: socket.socket, id, chunk_size=MAX_BYTES_UDP):
+    def receive_large_message_udp_by_id(sock: socket.socket, id, chunk_size=MAX_BYTES_UDP+12):
         address_id = None
         chunks_size = None
         if id in received_msgs:  # Если уже были получены chunks
@@ -159,7 +160,7 @@ class Message:
                 del received_msgs[id]
                 message_data = b"".join(sorted_chunks)
                 return message_data, address
-        else: # Данных вообще не было, получаем все, попутно не свои добавляя в словарь
+        else:  # Данных вообще не было, получаем все, попутно не свои добавляя в словарь
             chunk_header, address = sock.recvfrom(chunk_size)
             num_chunks, chunk_index, recv_id = struct.unpack("!III", chunk_header[:12])
             print(f"num_chunks: {num_chunks}. chunk_index - {chunk_index}, recv_id - {recv_id}")
@@ -168,9 +169,11 @@ class Message:
                 message_data[chunk_index] = chunk_header[12:]
 
                 for i in range(0, num_chunks):  # Дочитываем все chunks
+                    print(i)
                     chunks_size = i
                     chunk_header, address = sock.recvfrom(chunk_size)
                     num_chunks_tmp, chunk_index, recv_id_tmp = struct.unpack("!III", chunk_header[:12])
+                    print(f"num_chunks: {num_chunks}. chunk_index - {chunk_index}, recv_id - {recv_id}")
                     if recv_id_tmp == id:  # При считывании новых данных, данные соответствуют требуемым нам
                         # Тогда добавляем chunk и увеличваем индекс полученных чанков
                         address_id = address
@@ -189,10 +192,10 @@ class Message:
 
             # Данные были дополнены, теперь возвращаем
             sorted_chunks = [message_data[i] for i in sorted(message_data)]
-            last_chunk = sorted_chunks[-1]
-            last_chunk = last_chunk[:chunks_size * 12]
-            sorted_chunks[-1] = last_chunk
+            # last_chunk = sorted_chunks[-1]
+            # last_chunk = last_chunk[:chunks_size * 12]
+            # sorted_chunks[-1] = last_chunk
             message_data = b"".join(sorted_chunks)
-            print(f"ID: {id}, recv_size: {len(message_data)}, data:\n{chunks_size}")
+            print(f"ID: {id}, recv_size: {len(message_data)}, chunks_size: {chunks_size}")
             # print(f"DCIT: {received_msgs}")
             return message_data, address_id
