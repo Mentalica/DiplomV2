@@ -340,11 +340,11 @@ class Client(QObject):
         if self._is_screen_stream:
             self._is_screen_stream = False
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.SCREENSHARE, STOP_FLAG)
-            print(f"[ACTION] {CLIENT}: Video stream was stopped")
+            print(f"[ACTION] {CLIENT}: Screen stream was stopped")
         else:
             self._is_screen_stream = True
             Message.send_message_tcp(self._cmd_tcp_client_socket, MessageType.SCREENSHARE, START_FLAG)
-            print(f"[ACTION] {CLIENT}: Video stream was started")
+            print(f"[ACTION] {CLIENT}: Screen stream was started")
             self.handle_screen_stream()
 
     def handle_screen_stream(self):
@@ -356,13 +356,13 @@ class Client(QObject):
             # Формируем словарь с параметрами для создания окна
             window_dict = {"top": monitor["top"], "left": monitor["left"], "width": width, "height": height}
             # Бесконечный цикл для получения и отправки изображений
-            while True:
+            while self._is_screen_stream:
                 # Снимаем скриншот экрана и конвертируем его в numpy array
                 img = np.array(sct.grab(window_dict))
                 # Конвертируем изображение из формата BGR в RGB
                 # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 # Сжимаем изображение в формат JPEG
-                _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
 
                 Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE,
                                                buffer.tobytes(),
@@ -373,7 +373,7 @@ class Client(QObject):
                 # Отправляем изображение по сокету
                 # sock.sendall(buffer)
                 # Ждем 0.1 секунду перед следующим снимком экрана
-                time.sleep(0.01)
+                time.sleep(0.5)
 
     def handle_video_cmd(self):
         if self._is_video_stream:
@@ -396,7 +396,7 @@ class Client(QObject):
             # Чтение кадра
             ret, frame = capture.read()
 
-            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
 
             Message.send_large_message_udp(self._video_udp_client_socket, MessageType.VIDEO, buffer.tobytes(),
                                            MAIN_SERVER_ADDRESS_CL,
@@ -405,6 +405,7 @@ class Client(QObject):
             # Message.send_large_message_udp_by_id(self._video_udp_client_socket,  buffer.tobytes(),
             #                                MAIN_SERVER_ADDRESS_CL,
             #                                self._video_udp_server_port, self._udp_id_to_send)
+            cv2.waitKey(int(1000/30)) # 30fps
         capture.release()
 
     def handle_audio_cmd(self):
@@ -465,6 +466,7 @@ class Client(QObject):
             elif int(message_type) == MessageType.SCREENSHARE:
                 msg = message_data.decode().split("|")
                 user = self.get_user_by_id(int(msg[1]))
+                print(f"Flag - {msg[0]}")
                 if user:
                     if msg[0] == START_FLAG.decode():
                         # self._is_screen_stream = True
@@ -639,6 +641,7 @@ class Client(QObject):
         # self._audio.close_out_stream()
 
     def receive_screen(self, user_id):
+        time.sleep(0.1)
         while self._show_other_screen_stream:
             data = Message.receive_large_message_udp(self._screen_udp_client_socket)
             # with self.lock:
@@ -647,13 +650,14 @@ class Client(QObject):
             try:
                 # попытаться выполнить декодирование изображения
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+                self.update_screen_frame.emit(frame, user_id)
             except cv2.error as e:
                 # обработать исключение и перейти к следующему изображению
                 print(f"Пропущено неправильное изображение: {e}")
             # frame = cv2.imdecode(np.frombuffer(data[0], dtype=np.uint8), cv2.IMREAD_COLOR)
             # self.frame_received.emit(frame)
-            if frame.any():
-                self.update_screen_frame.emit(frame, user_id)
+            # if frame.any():
+            #     self.update_screen_frame.emit(frame, user_id)
                 # cv2.imshow('Video Frame', frame)
                 # if cv2.waitKey(1) == ord('q'):
                 # Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
@@ -669,13 +673,14 @@ class Client(QObject):
             try:
                 # попытаться выполнить декодирование изображения
                 frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
+                self.update_video_frame.emit(frame, user_id)
             except cv2.error as e:
                 # обработать исключение и перейти к следующему изображению
                 print(f"Пропущено неправильное изображение: {e}")
             # frame = cv2.imdecode(np.frombuffer(data[0], dtype=np.uint8), cv2.IMREAD_COLOR)
             # self.frame_received.emit(frame)
-            if frame.any():
-                self.update_video_frame.emit(frame, user_id)
+            # if frame.any():
+            #     self.update_video_frame.emit(frame, user_id)
                     # print(frame)
                     # cv2.imshow('Video Frame', frame)
                     # if cv2.waitKey(1) == ord('q'):

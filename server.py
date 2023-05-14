@@ -210,6 +210,11 @@ class Server:
                     threading.Thread(target=self.screenshare_handler, args=(client,)).start()
                 elif message_data == STOP_FLAG:
                     client.user.is_screen_stream = False
+                    for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
+                        if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                            print(f"Stop flag sent1")
+                            Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                                     STOP_FLAG + b"|" + str(client.user.user_id).encode())
             elif message_type == MessageType.CREATE_ROOM:
                 self.create_room(message_data, client)
             elif message_type == MessageType.DELETE_ROOM:
@@ -473,8 +478,10 @@ class Server:
                     #                                          data[0],
                     #                                          cl.address,
                     #                                          cl.screen_udp_port_client, client.user.user_id)
+        print(f"Stop flag sent")
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                print(f"Stop flag sent1")
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
                                          STOP_FLAG + b"|" + str(client.user.user_id).encode())
 
