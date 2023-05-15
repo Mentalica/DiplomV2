@@ -224,42 +224,42 @@ class Message:
     @staticmethod
     def send_large_message_udp_id(sock: socket.socket, message_type: int, message_data: bytes, dest_addr: str,
                                dest_port: int, id, chunk_size=MAX_BYTES_UDP):
-        with Message._socket_lock:
-            packed_message = struct.pack(f"!I {len(message_data)}s", message_type, message_data)
-            message_length = len(message_data)
-            print(f"Sent: {message_length}")
-            num_chunks = (message_length // chunk_size) + 1
-            chunks = [packed_message[i:i + chunk_size] for i in range(0, message_length, chunk_size)]
+        # with Message._socket_lock:
+        packed_message = struct.pack(f"!{len(message_data)}s", message_data)
+        message_length = len(message_data)
+        print(f"Sent: {message_length}")
+        num_chunks = (message_length // chunk_size) + 1
+        chunks = [packed_message[i:i + chunk_size] for i in range(0, message_length, chunk_size)]
 
-            for i, chunk in enumerate(chunks):
-                start_flag = i == 0
-                end_flag = i == num_chunks - 1
-                chunk_header = struct.pack("!??II", start_flag, end_flag, i, id)
-                sock.sendto(chunk_header + chunk, (dest_addr, dest_port))
+        for i, chunk in enumerate(chunks):
+            start_flag = i == 0
+            end_flag = i == num_chunks - 1
+            chunk_header = struct.pack("!??II", start_flag, end_flag, i, id)
+            sock.sendto(chunk_header + chunk, (dest_addr, dest_port))
 
     @staticmethod
     def receive_large_message_udp_id(sock: socket.socket, id, chunk_size=MAX_BYTES_UDP+10):
-        with Message._socket_lock:
-            chunk_header, address = sock.recvfrom(chunk_size+4)
+        # with Message._socket_lock:
+        chunk_header, address = sock.recvfrom(chunk_size)
 
-            message_chunks = {}
-            start_flag, end_flag, chunk_index, message_type, recv_id = struct.unpack(f"!??III", chunk_header[:14])
-            message_chunks[0] = chunk_header[14:]
+        message_chunks = {}
+        start_flag, end_flag, chunk_index,  recv_id = struct.unpack(f"!??II", chunk_header[:10])
+        message_chunks[0] = chunk_header[10:]
 
-            start_of_message = start_flag
-            end_of_message = end_flag
+        start_of_message = start_flag
+        end_of_message = end_flag
 
-            while not end_of_message:
-                chunk_header, address = sock.recvfrom(chunk_size)
-                start_flag, end_flag, chunk_index, recv_id = struct.unpack("!??II", chunk_header[:10])
-                # flag = True
-                if recv_id == id:
+        while not end_of_message:
+            chunk_header, address = sock.recvfrom(chunk_size)
+            start_flag, end_flag, chunk_index, recv_id = struct.unpack("!??II", chunk_header[:10])
+            # flag = True
+            if recv_id == id:
 
-                    start_of_message |= start_flag
-                    end_of_message |= end_flag
-                    message_chunks[chunk_index + 1] = chunk_header[10:]
+                start_of_message |= start_flag
+                end_of_message |= end_flag
+                message_chunks[chunk_index + 1] = chunk_header[10:]
 
-            sorted_chunks = [message_chunks[i] for i in sorted(message_chunks)]
-            message_data = b"".join(sorted_chunks)
-            print(f"Received: {len(message_data)}")
-            return message_type, message_data, address
+        sorted_chunks = [message_chunks[i] for i in sorted(message_chunks)]
+        message_data = b"".join(sorted_chunks)
+        print(f"Received: {len(message_data)}")
+        return 4, message_data, address

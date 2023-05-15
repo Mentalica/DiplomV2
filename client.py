@@ -367,6 +367,7 @@ class Client(QObject):
                 # Message.send_large_message_udp(self._screen_udp_client_socket, MessageType.SCREENSHARE,
                 #                                buffer.tobytes(),
                 #                                MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port)
+                # with self.lock:
                 Message.send_large_message_udp_id(self._screen_udp_client_socket, MessageType.SCREENSHARE,
                                                buffer.tobytes(),
                                                MAIN_SERVER_ADDRESS_CL, self._screen_udp_server_port,
@@ -653,8 +654,8 @@ class Client(QObject):
         while self._show_other_screen_stream:
             # data = Message.receive_large_message_udp(self._screen_udp_client_socket)
             try:
-                # with self.lock:
-                data = Message.receive_large_message_udp_id(self._screen_udp_client_socket, user_id)
+                with self.lock:
+                    data = Message.receive_large_message_udp_id(self._screen_udp_client_socket, user_id)
             # with self.lock:
             # data = Message.receive_large_message_udp_by_id(self._screen_udp_client_socket, user_id)
             # if data[0] == MessageType.SCREENSHARE:
