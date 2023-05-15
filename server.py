@@ -44,9 +44,9 @@ class Server:
         self._users, self._rooms, self._chats = self._db.get_all_data()
         # self.create_udp_socket()
 
-    def stop(self):
-        self.close_tcp_server_connection()
-        self.close_udp_server_connection()
+    # def stop(self):
+    #     self.close_tcp_server_connection()
+    #     self.close_udp_server_connection()
 
     def create_udp_socket(self, udp_server_port):
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -66,13 +66,13 @@ class Server:
               f"{tcp_socket}")
         return tcp_socket
 
-    def close_udp_server_connection(self):
-        self._udp_server_socket.close()
+    def close_udp_server_connection(self, sock):
+        sock.close()
         # self._is_udp_connected = False
         print(f"[OK] {SERVER} UDP server was stopped")
 
-    def close_tcp_server_connection(self):
-        self._tcp_server_socket.close()
+    def close_tcp_server_connection(self, sock):
+        sock.close()
         # self._is_tcp_connected = False
         print(f"[OK] {SERVER} TCP server was stopped")
 
@@ -91,7 +91,7 @@ class Server:
             # client TCP server
             tcp_client_port = curr_port
             tcp_cmd_socket = self.create_tcp_socket(tcp_client_port)
-            new_client.cmd_tcp_port_server = tcp_cmd_socket
+            new_client.cmd_tcp_socket_server = tcp_cmd_socket
             new_client.cmd_tcp_port_server = tcp_client_port
             # client screen UDP server
             curr_port += 1
@@ -170,8 +170,29 @@ class Server:
     def handle_client(self, client: NetworkManager):
         while True:
             # Принимаем сообщение от клиента
-            message_type, message_data = Message.receive_message_tcp(
-                client.cmd_tcp_socket_client)  # ERROR! CLOSE CONNECTION ! EXCEPT
+            try:
+                message_type, message_data = Message.receive_message_tcp(client.cmd_tcp_socket_client)
+            except Exception as e:
+                print(f"Error handling client: {e}")
+                if client.user:
+                    if client.user.active_client:
+                        client.user.active_client = None
+                    if client.user.active_room:
+                        client.user.active_room.delete_user_from_room(client.user)
+                        client.user.active_room = None
+                    if client.user.is_online:
+                        client.user.is_online = False
+
+                    client.user = None
+                self.close_udp_server_connection(client.screen_udp_socket_server)
+                self.close_udp_server_connection(client.voice_udp_socket_server)
+                self.close_udp_server_connection(client.video_udp_socket_server)
+                self.close_tcp_server_connection(client.cmd_tcp_socket_server)
+
+                print(f"Client {client.network_manager_id} disconnected")
+                self._clients.remove(client)
+                break
+
             # if client.active_room:
             # Обрабатываем сообщение в зависимости от его типа
             print(f"[RECEIVED] {SERVER}: msg_type - {message_type}; client ID - {client.network_manager_id}; "
@@ -454,36 +475,47 @@ class Server:
     #     cv2.destroyAllWindows()
 
     def screenshare_handler(self, client: NetworkManager):
-        for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            # for user in client.user.active_room.get_user_list():
-            if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
-                                         START_FLAG + b"|" + str(client.user.user_id).encode())
-        while client.user.is_screen_stream:
-            data = Message.receive_large_message_udp(client.screen_udp_socket_server)
-            # with self.lock:
-            # data = Message.receive_large_message_udp_by_id(client.screen_udp_socket_server, client.cmd_tcp_port_server)
-            # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
-            # for user in client.user.active_room.get_user_list():
+        try:
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-                # print(f"Sended to - {user}")
-                # print(f"data - {data}")
+                # for user in client.user.active_room.get_user_list():
                 if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
-                    Message.send_large_message_udp(cl.screen_udp_socket_server,
-                                                                                  MessageType.SCREENSHARE, data[1],
-                                                                                  cl.address,
-                                                                                  cl.screen_udp_port_client)
-                    # with self.lock:
-                    # Message.send_large_message_udp_by_id(cl.screen_udp_socket_server,
-                    #                                          data[0],
-                    #                                          cl.address,
-                    #                                          cl.screen_udp_port_client, client.user.user_id)
-        print(f"Stop flag sent")
-        for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
-            if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
-                print(f"Stop flag sent1")
-                Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
-                                         STOP_FLAG + b"|" + str(client.user.user_id).encode())
+                    Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                             START_FLAG + b"|" + str(client.user.user_id).encode())
+            while client.user.is_screen_stream:
+                # data = Message.receive_large_message_udp(client.screen_udp_socket_server)
+
+                data = Message.receive_large_message_udp_id(client.screen_udp_socket_server, client.cmd_tcp_port_server)
+
+                # with self.lock:
+                # data = Message.receive_large_message_udp_by_id(client.screen_udp_socket_server, client.cmd_tcp_port_server)
+                # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
+                # for user in client.user.active_room.get_user_list():
+                for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
+                    # print(f"Sended to - {user}")
+                    # print(f"data - {data}")
+                    if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                        # Message.send_large_message_udp(cl.screen_udp_socket_server,
+                        #                                                               MessageType.SCREENSHARE, data[1],
+                        #                                                               cl.address,
+                        #                                                               cl.screen_udp_port_client)
+                        threading.Thread(target=Message.send_large_message_udp_id, args=(cl.screen_udp_socket_server,
+                                                       MessageType.SCREENSHARE, data[1],
+                                                       cl.address,
+                                                       cl.screen_udp_port_client, client.user.user_id,)).start()
+                        # with self.lock:
+                        # Message.send_large_message_udp_by_id(cl.screen_udp_socket_server,
+                        #                                          data[0],
+                        #                                          cl.address,
+                        #                                          cl.screen_udp_port_client, client.user.user_id)
+            print(f"Stop flag sent")
+            for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
+                if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
+                    print(f"Stop flag sent1")
+                    Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.SCREENSHARE,
+                                             STOP_FLAG + b"|" + str(client.user.user_id).encode())
+        except Exception as e:
+            print(f"Error handling receive msg screenshare: {e}")
+            # break
 
     def audio_handler(self, client: NetworkManager):
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
@@ -510,16 +542,21 @@ class Server:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO,
                                          START_FLAG + b"|" + str(client.user.user_id).encode())
         while client.user.is_video_stream:
-            data = Message.receive_large_message_udp(client.video_udp_socket_server)
+            # data = Message.receive_large_message_udp(client.video_udp_socket_server)
+            data = Message.receive_large_message_udp_id(client.video_udp_socket_server, client.cmd_tcp_port_server)
             # with self.lock:
             # data = Message.receive_large_message_udp_by_id(client.video_udp_socket_server, client.cmd_tcp_port_server)
             # print(data)
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
                 if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
-                    Message.send_large_message_udp(cl.video_udp_socket_server,
+                    # Message.send_large_message_udp(cl.video_udp_socket_server,
+                    #                                MessageType.VIDEO, data[1],
+                    #                                cl.address,
+                    #                                cl.video_udp_port_client)
+                    Message.send_large_message_udp_id(cl.video_udp_socket_server,
                                                    MessageType.VIDEO, data[1],
                                                    cl.address,
-                                                   cl.video_udp_port_client)
+                                                   cl.video_udp_port_client, client.user.user_id)
                     # with self.lock:
                     # Message.send_large_message_udp_by_id(cl.video_udp_socket_server,
                     #                                          data[0],

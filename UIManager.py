@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel, \
-    QStackedWidget, QMainWindow, QMessageBox, QComboBox, QListWidget
+    QStackedWidget, QMainWindow, QMessageBox, QComboBox, QListWidget, QDesktopWidget
 
 from client import Client
 
@@ -48,14 +48,15 @@ class VideoWidgetTwo(QWidget):
 class LoginWidget(QWidget):
     def __init__(self, parent=None, client: Client = None):
         super().__init__(parent)
+        self.setFixedSize(800, 600)
         self.client = client
         email_label = QLabel('Email')
         self.email_input = QLineEdit()
-
+        self.email_input.setFixedWidth(200)
         password_label = QLabel('Password')
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-
+        self.password_input.setFixedWidth(200)
         login_button = QPushButton('Войти')
         register_button = QPushButton('Зарегистрироваться')
 
@@ -63,15 +64,29 @@ class LoginWidget(QWidget):
         self.client.update_is_authorized.connect(self.is_logined)
         register_button.clicked.connect(self.show_register_widget)
 
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(login_button)
+        button_layout.addWidget(register_button)
+        button_layout.addStretch()
+
         layout = QVBoxLayout()
-        layout.addWidget(email_label)
-        layout.addWidget(self.email_input)
-        layout.addWidget(password_label)
-        layout.addWidget(self.password_input)
-        layout.addWidget(login_button)
-        layout.addWidget(register_button)
+
+        layout.addStretch()
+
+        layout.addWidget(email_label, alignment=Qt.AlignCenter)
+        layout.addWidget(self.email_input, alignment=Qt.AlignCenter)
+        layout.addWidget(password_label, alignment=Qt.AlignCenter)
+        layout.addWidget(self.password_input, alignment=Qt.AlignCenter)
+        layout.addLayout(button_layout)
+
+        layout.addStretch()
 
         self.setLayout(layout)
+
+        # self.setStyleSheet('background-color: #1a1a1a; color: #ffffff;')
+
+
 
     def login(self):
         self.client.send_login_user(self.email_input.text(), self.password_input.text())
@@ -82,8 +97,6 @@ class LoginWidget(QWidget):
     def is_logined(self, flag):
         if flag:
             self.parent().setCurrentIndex(2)
-        else:
-            QMessageBox.warning(self.parent(), 'Error', 'Cant login')
 
     def show_register_widget(self):
         self.email_input.clear()
@@ -97,14 +110,14 @@ class RegisterWidget(QWidget):
         self.client = client
         email_label = QLabel('Email')
         self.email_input = QLineEdit()
-
+        self.email_input.setFixedWidth(200)
         password_label = QLabel('Password')
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-
+        self.password_input.setFixedWidth(200)
         username_label = QLabel('Username')
         self.username_input = QLineEdit()
-
+        self.username_input.setFixedWidth(200)
         confirm_button = QPushButton('Подтвердить')
         login_button = QPushButton('Войти')
 
@@ -112,23 +125,32 @@ class RegisterWidget(QWidget):
         self.client.update_is_authorized.connect(self.is_logined)
         login_button.clicked.connect(self.show_login_widget)
 
-        layout = QVBoxLayout()
-        layout.addWidget(email_label)
-        layout.addWidget(self.email_input)
-        layout.addWidget(password_label)
-        layout.addWidget(self.password_input)
-        layout.addWidget(username_label)
-        layout.addWidget(self.username_input)
-        layout.addWidget(confirm_button)
-        layout.addWidget(login_button)
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(confirm_button)
+        button_layout.addWidget(login_button)
+        button_layout.addStretch()
 
+        layout = QVBoxLayout()
+
+        layout.addStretch()
+        layout.addWidget(email_label, alignment=Qt.AlignCenter)
+        layout.addWidget(self.email_input, alignment=Qt.AlignCenter)
+        layout.addWidget(password_label, alignment=Qt.AlignCenter)
+        layout.addWidget(self.password_input, alignment=Qt.AlignCenter)
+        layout.addWidget(username_label, alignment=Qt.AlignCenter)
+        layout.addWidget(self.username_input, alignment=Qt.AlignCenter)
+        layout.addLayout(button_layout)
+        # layout.addWidget(confirm_button)
+        # layout.addWidget(login_button)
+        layout.addStretch()
         self.setLayout(layout)
 
     def is_logined(self, flag):
         if flag:
             self.parent().setCurrentIndex(2)
-        else:
-            QMessageBox.warning(self.parent(), 'Error', 'Current email is occupied. Try again')
+        # else:
+        #     QMessageBox.warning(self.parent(), 'Error', 'Current email is occupied. Try again')
 
     def show_login_widget(self):
         self.parent().setCurrentIndex(0)
