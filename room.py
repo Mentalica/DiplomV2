@@ -12,6 +12,7 @@ class Room:
         self._owner = owner
         self.add_room_to_user(owner)
         self._chat = None
+        self.is_telegram = False
 
     def add_room_to_user(self, user):
         user.add_room_to_list(self)

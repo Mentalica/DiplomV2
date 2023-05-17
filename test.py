@@ -1,102 +1,42 @@
-# import sys
-# from PyQt5.QtCore import Qt
-# from PyQt5.QtGui import QPalette, QColor
-# from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QStyleFactory, QSizePolicy, QGridLayout, QSpacerItem
-#
-# class VideoPlayer(QWidget):
-#     def __init__(self):
-#         super().__init__()
-#
-#         # Создание видео плеера
-#         self.video_player = QLabel('Видео будет здесь')
-#         self.video_player.setAlignment(Qt.AlignCenter)
-#
-#         # Создание кнопок управления видео
-#         self.play_button = QPushButton('Play')
-#         self.pause_button = QPushButton('Pause')
-#         self.stop_button = QPushButton('Stop')
-#
-#         # Создание чата и поля ввода сообщения
-#         self.chat_history = QTextEdit()
-#         self.chat_history.setReadOnly(True)
-#
-#         self.chat_input = QLineEdit()
-#         self.chat_input.setPlaceholderText('Введите сообщение')
-#         self.send_button = QPushButton('Отправить')
-#
-#         # Создание вертикального слоя для кнопок управления видео
-#         control_button_layout = QVBoxLayout()
-#         control_button_layout.addWidget(self.play_button)
-#         control_button_layout.addWidget(self.pause_button)
-#         control_button_layout.addWidget(self.stop_button)
-#
-#         # Создание горизонтального слоя для видео плеера и кнопок управления видео
-#         video_control_layout = QHBoxLayout()
-#         video_control_layout.addWidget(self.video_player)
-#         video_control_layout.addLayout(control_button_layout)
-#
-#         # Создание вертикального слоя для чата
-#         chat_layout = QVBoxLayout()
-#         chat_layout.addWidget(self.chat_history)
-#         chat_layout.addWidget(self.chat_input)
-#         chat_layout.addWidget(self.send_button)
-#
-#         # Создание главного слоя
-#         main_layout = QGridLayout()
-#         main_layout.addLayout(video_control_layout, 0, 0, 2, 1)
-#         main_layout.addLayout(chat_layout, 0, 1)
-#         main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding), 1, 1)
-#
-#         # Установка главного слоя в качестве макета для виджета
-#         self.setLayout(main_layout)
-#
-#         # Назначение обработчиков событий для кнопок
-#         self.play_button.clicked.connect(self.play_video)
-#         self.pause_button.clicked.connect(self.pause_video)
-#         self.stop_button.clicked.connect(self.stop_video)
-#         self.send_button.clicked.connect(self.send_message)
-#
-#     def play_video(self):
-#         # Обработчик нажатия на кнопку "Play"
-#         pass
-#
-#     def pause_video(self):
-#         # Обработчик нажатия на кнопку "Pause"
-#         pass
-#
-#     def stop_video(self):
-#         # Обработчик нажатия на кнопку "Stop"
-#         pass
-#
-#     def send_message(self):
-#         # Обработчик нажатия на кнопку "Отправить"
-#         pass
-#
-# if __name__ == '__main__':
-#     # Создание приложения и виджета
-#     app = QApplication(sys.argv)
-#     video_player = VideoPlayer()
-#     video_player.show()
-#     sys.exit(app.exec_())
+import inspect
+import os
 
+def get_classes_and_attributes(file_path):
+    classes = []
+    with open(file_path, 'r', encoding='utf-8') as file:
+        try:
+            code = compile(file.read(), file_path, 'exec')
+            # Остальной код для извлечения классов и атрибутов
+        except Exception as e:
+            print(f"Ошибка чтения файла {file_path}: {str(e)}")
 
+        for obj in code.co_consts:
+            if inspect.isclass(obj):
+                class_name = obj.__name__
+                class_attributes = [name for name, _ in inspect.getmembers(obj) if not name.startswith('__')]
+                classes.append((class_name, class_attributes))
+    return classes
 
-#
-# if __name__ == '__main__':
-#     app = QApplication([])
-#     main_window = MainWindow()
-#     # main_window.resize(1366, 768)
-#     main_window.show()
-#     app.exec_()
+def get_all_classes_and_attributes(folder_path):
+    all_classes = []
+    for root, dirs, files in os.walk(folder_path):
+        print(dirs)
+        for file in files:
+            # print(file)
+            if file.endswith('.py'):
+                file_path = os.path.join(root, file)
+                classes = get_classes_and_attributes(file_path)
+                all_classes.extend(classes)
+    return all_classes
 
-from PyQt5.QtWidgets import QWidget, QListWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QApplication
-from PyQt5.QtCore import Qt, pyqtSignal
+# Укажите путь к папке проекта
+current_directory = os.getcwd()
+print(current_directory)
+project_folder = ''  # Установите путь к папке проекта
+all_classes = get_all_classes_and_attributes(project_folder)
 
-
-
-if __name__ == '__main__':
-    app = QApplication([])
-    main_window = ChatWidget()
-    # main_window.resize(1366, 768)
-    main_window.show()
-    app.exec_()
+# Вывод всех классов, их полей и методов
+for class_name, attributes in all_classes:
+    print(f"Class: {class_name}")
+    print(f"Attributes: {attributes}")
+    print()

@@ -19,10 +19,12 @@ from room import Room
 from user import User
 from chat import Chat, ChatMessage
 from database import Database
+from telegramAPI import TelegramAPI
 
 
 class Server:
     def __init__(self, max_client=MAX_CLIENTS_COUNT):
+        self.tg = TelegramAPI()
         self._is_tcp_connected = False
         self._is_udp_connected = False
         self._tcp_server_socket = None
@@ -43,10 +45,6 @@ class Server:
         self._db.create_tables()
         self._users, self._rooms, self._chats = self._db.get_all_data()
         # self.create_udp_socket()
-
-    # def stop(self):
-    #     self.close_tcp_server_connection()
-    #     self.close_udp_server_connection()
 
     def create_udp_socket(self, udp_server_port):
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -254,6 +252,8 @@ class Server:
                 self.handle_chat(message_data, client)
             elif message_type == MessageType.UPDATE_CHAT:
                 self.update_user_chat(client)
+            elif message_type == MessageType.CONNECT_TELEGRAM:
+                self.create_telegram(message_data, client)
             else:
                 print(f"[RECEIVED] {SERVER} msg_type - {message_type}. Wrong command")
 
@@ -281,6 +281,7 @@ class Server:
                                message=message_data.decode(), user=client.user)
         self._db.insert_chat_message(chat_msg)
         chat.add_message_to_chat(chat_msg)
+        self.tg.send_message_to_telegram(f"{client.user.username}: {message_data.decode()}")
         msg_to_send = "|".join(chat_msg.get_info_list())
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             print(cl)
@@ -393,11 +394,8 @@ class Server:
         client.user.active_room = room
         self.create_chat(room)
         self._db.insert_room(room)
-        msg = "|".join([str(client.user.user_id), client.user.username])
-        print(f" User - {msg}")
-        Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.GET_CLIENT_LIST, msg.encode())
-        print(
-            f"[ROOM-CREATE] {SERVER} room - {room}\nroom list - {self._rooms}\nclient active room - {client.user.active_room}")
+        self.get_client_list(client)
+        print("[ROOM-CREATE] {SERVER} room - {room}\nroom list - {self._rooms}\nclient active room - {client.user.active_room}")
         # room.add_user_to_room(client)
         Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.CREATE_ROOM, OK_FLAG + b"|" + message_data)
 
@@ -414,9 +412,6 @@ class Server:
                 Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.DELETE_ROOM, ERROR_FLAG)
         else:
             Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.DELETE_ROOM, ERROR_FLAG)
-
-    # def is_user_in_room(self, room):
-    #     return room.get_user_list()
 
     def join_room(self, message_data, client: NetworkManager):
         room = self.find_room_by_name(message_data.decode())
@@ -461,19 +456,6 @@ class Server:
                 return room
         return None
 
-    # def screenshare_handler(self, client: User):
-    #     while self._is_screen_stream:
-    #         data = Message.receive_large_message_udp(client.screen_udp_socket_server)
-    #         # data = Message.recv_large_message_udp(client.screen_udp_socket_server)
-    #         if data[0] == MessageType.SCREENSHARE:
-    #             frame = cv2.imdecode(np.frombuffer(data[1], dtype=np.uint8), cv2.IMREAD_COLOR)
-    #
-    #             cv2.imshow('Video Frame', frame)
-    #             if cv2.waitKey(1) == ord('q'):
-    #                 Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.SCREENSHARE, STOP_FLAG)
-    #                 break
-    #     cv2.destroyAllWindows()
-
     def screenshare_handler(self, client: NetworkManager):
         try:
             for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
@@ -499,9 +481,11 @@ class Server:
                         #                                                               cl.address,
                         #                                                               cl.screen_udp_port_client)
                         threading.Thread(target=Message.send_large_message_udp_id, args=(cl.screen_udp_socket_server,
-                                                       MessageType.SCREENSHARE, data[1],
-                                                       cl.address,
-                                                       cl.screen_udp_port_client, client.user.user_id,)).start()
+                                                                                         MessageType.SCREENSHARE,
+                                                                                         data[1],
+                                                                                         cl.address,
+                                                                                         cl.screen_udp_port_client,
+                                                                                         client.user.user_id,)).start()
                         # with self.lock:
                         # Message.send_large_message_udp_by_id(cl.screen_udp_socket_server,
                         #                                          data[0],
@@ -529,8 +513,8 @@ class Server:
                 if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                     # with self.lock:
                     Message.send_message_udp(cl.voice_udp_socket_server,
-                                                 MessageType.AUDIO, data[1], cl.address,
-                                                 cl.voice_udp_port_client)
+                                             MessageType.AUDIO, data[1], cl.address,
+                                             cl.voice_udp_port_client)
         for cl in [user.active_client for user in client.user.active_room.get_user_list()]:
             if cl and client.user.user_id != cl.user.user_id and client.user.active_room == cl.user.active_room:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.AUDIO,
@@ -554,9 +538,9 @@ class Server:
                     #                                cl.address,
                     #                                cl.video_udp_port_client)
                     Message.send_large_message_udp_id(cl.video_udp_socket_server,
-                                                   MessageType.VIDEO, data[1],
-                                                   cl.address,
-                                                   cl.video_udp_port_client, client.user.user_id)
+                                                      MessageType.VIDEO, data[1],
+                                                      cl.address,
+                                                      cl.video_udp_port_client, client.user.user_id)
                     # with self.lock:
                     # Message.send_large_message_udp_by_id(cl.video_udp_socket_server,
                     #                                          data[0],
@@ -567,8 +551,15 @@ class Server:
                 Message.send_message_tcp(cl.cmd_tcp_socket_client, MessageType.VIDEO,
                                          STOP_FLAG + b"|" + str(client.user.user_id).encode())
 
-    def broadcast_message(self):
-        pass
-
-    def get_all_rooms(self):
-        pass
+    def create_telegram(self, message_data, client: NetworkManager):
+        if client.user.active_room.is_owner(client.user):
+            # self.tg = TelegramAPI()
+            msg = message_data.decode().split("|")
+            print(msg[0])
+            print(msg[1])
+            self.tg.connect_telegram_bot(msg[0], msg[1])
+            client.user.telegram_token = message_data
+            client.user.active_room.is_telegram = True
+            Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.CONNECT_TELEGRAM, OK_FLAG)
+        else:
+            Message.send_message_tcp(client.cmd_tcp_socket_client, MessageType.CONNECT_TELEGRAM, ERROR_FLAG)

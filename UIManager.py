@@ -5,6 +5,9 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLi
     QStackedWidget, QMainWindow, QMessageBox, QComboBox, QListWidget, QDesktopWidget
 
 from client import Client
+import gui.loginpage as login
+import gui.registerpage as register
+import gui.accountpage as account
 
 
 class VideoWidgetTwo(QWidget):
@@ -45,48 +48,73 @@ class VideoWidgetTwo(QWidget):
         self.video_widget.setPixmap(q_pixmap)
 
 
-class LoginWidget(QWidget):
-    def __init__(self, parent=None, client: Client = None):
-        super().__init__(parent)
-        self.setFixedSize(800, 600)
+# class LoginWidget(QWidget):
+#     def __init__(self, parent=None, client: Client = None):
+#         super().__init__(parent)
+#         self.setFixedSize(800, 600)
+#         self.client = client
+#         email_label = QLabel('Email')
+#         self.email_input = QLineEdit()
+#         self.email_input.setFixedWidth(200)
+#         password_label = QLabel('Password')
+#         self.password_input = QLineEdit()
+#         self.password_input.setEchoMode(QLineEdit.Password)
+#         self.password_input.setFixedWidth(200)
+#         login_button = QPushButton('Войти')
+#         register_button = QPushButton('Зарегистрироваться')
+#
+#         login_button.clicked.connect(self.login)
+#         self.client.update_is_authorized.connect(self.is_logined)
+#         register_button.clicked.connect(self.show_register_widget)
+#
+#         button_layout = QHBoxLayout()
+#         button_layout.addStretch()
+#         button_layout.addWidget(login_button)
+#         button_layout.addWidget(register_button)
+#         button_layout.addStretch()
+#
+#         layout = QVBoxLayout()
+#
+#         layout.addStretch()
+#
+#         layout.addWidget(email_label, alignment=Qt.AlignCenter)
+#         layout.addWidget(self.email_input, alignment=Qt.AlignCenter)
+#         layout.addWidget(password_label, alignment=Qt.AlignCenter)
+#         layout.addWidget(self.password_input, alignment=Qt.AlignCenter)
+#         layout.addLayout(button_layout)
+#
+#         layout.addStretch()
+#
+#         self.setLayout(layout)
+#
+#         # self.setStyleSheet('background-color: #1a1a1a; color: #ffffff;')
+#
+#
+#
+#     def login(self):
+#         self.client.send_login_user(self.email_input.text(), self.password_input.text())
+#         self.email_input.clear()
+#         self.password_input.clear()
+#         # GET STATUS LOGIN
+#
+#     def is_logined(self, flag):
+#         if flag:
+#             self.parent().setCurrentIndex(2)
+#
+#     def show_register_widget(self):
+#         self.email_input.clear()
+#         self.password_input.clear()
+#         self.parent().setCurrentIndex(1)
+
+
+class LoginWidget(QMainWindow, login.Ui_Login):
+    def __init__(self, client: Client = None):
+        super().__init__()
+        self.setupUi(self)
         self.client = client
-        email_label = QLabel('Email')
-        self.email_input = QLineEdit()
-        self.email_input.setFixedWidth(200)
-        password_label = QLabel('Password')
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.Password)
-        self.password_input.setFixedWidth(200)
-        login_button = QPushButton('Войти')
-        register_button = QPushButton('Зарегистрироваться')
-
-        login_button.clicked.connect(self.login)
+        self.login_button.clicked.connect(self.login)
         self.client.update_is_authorized.connect(self.is_logined)
-        register_button.clicked.connect(self.show_register_widget)
-
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        button_layout.addWidget(login_button)
-        button_layout.addWidget(register_button)
-        button_layout.addStretch()
-
-        layout = QVBoxLayout()
-
-        layout.addStretch()
-
-        layout.addWidget(email_label, alignment=Qt.AlignCenter)
-        layout.addWidget(self.email_input, alignment=Qt.AlignCenter)
-        layout.addWidget(password_label, alignment=Qt.AlignCenter)
-        layout.addWidget(self.password_input, alignment=Qt.AlignCenter)
-        layout.addLayout(button_layout)
-
-        layout.addStretch()
-
-        self.setLayout(layout)
-
-        # self.setStyleSheet('background-color: #1a1a1a; color: #ffffff;')
-
-
+        self.register_button.clicked.connect(self.show_register_widget)
 
     def login(self):
         self.client.send_login_user(self.email_input.text(), self.password_input.text())
@@ -96,59 +124,32 @@ class LoginWidget(QWidget):
 
     def is_logined(self, flag):
         if flag:
+            self.LoginStatus.setText("Login")
             self.parent().setCurrentIndex(2)
+        else:
+            self.LoginStatus.setText("Login Failed")
 
     def show_register_widget(self):
         self.email_input.clear()
         self.password_input.clear()
         self.parent().setCurrentIndex(1)
 
-
-class RegisterWidget(QWidget):
-    def __init__(self, parent=None, client: Client = None):
-        super().__init__(parent)
+class RegisterWidget(QMainWindow, register.Ui_MainWindow):
+    def __init__(self, client: Client = None):
+        super().__init__()
+        self.setupUi(self)
         self.client = client
-        email_label = QLabel('Email')
-        self.email_input = QLineEdit()
-        self.email_input.setFixedWidth(200)
-        password_label = QLabel('Password')
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.Password)
-        self.password_input.setFixedWidth(200)
-        username_label = QLabel('Username')
-        self.username_input = QLineEdit()
-        self.username_input.setFixedWidth(200)
-        confirm_button = QPushButton('Подтвердить')
-        login_button = QPushButton('Войти')
 
-        confirm_button.clicked.connect(self.signup)
+        self.confirm_button.clicked.connect(self.signup)
         self.client.update_is_authorized.connect(self.is_logined)
-        login_button.clicked.connect(self.show_login_widget)
-
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        button_layout.addWidget(confirm_button)
-        button_layout.addWidget(login_button)
-        button_layout.addStretch()
-
-        layout = QVBoxLayout()
-
-        layout.addStretch()
-        layout.addWidget(email_label, alignment=Qt.AlignCenter)
-        layout.addWidget(self.email_input, alignment=Qt.AlignCenter)
-        layout.addWidget(password_label, alignment=Qt.AlignCenter)
-        layout.addWidget(self.password_input, alignment=Qt.AlignCenter)
-        layout.addWidget(username_label, alignment=Qt.AlignCenter)
-        layout.addWidget(self.username_input, alignment=Qt.AlignCenter)
-        layout.addLayout(button_layout)
-        # layout.addWidget(confirm_button)
-        # layout.addWidget(login_button)
-        layout.addStretch()
-        self.setLayout(layout)
+        self.login_button.clicked.connect(self.show_login_widget)
 
     def is_logined(self, flag):
         if flag:
+            self.RegisterStatus.setText("Sign Up")
             self.parent().setCurrentIndex(2)
+        else:
+            self.RegisterStatus.setText("Sign Up Failed")
         # else:
         #     QMessageBox.warning(self.parent(), 'Error', 'Current email is occupied. Try again')
 
@@ -163,9 +164,79 @@ class RegisterWidget(QWidget):
         self.email_input.clear()
         self.password_input.clear()
         self.username_input.clear()
-        # GET STATUS LOGIN
-        # self.parent().setCurrentIndex(2)
 
+
+class AccountWidget(QMainWindow, account.Ui_MainWindow):
+    def __init__(self, client: Client = None):
+        super().__init__()
+        self.setupUi(self)
+        self.client = client
+        self.is_password_visible = False
+        # Default settings
+        self.username_label.setText(f"Username: {self.client.username}")
+        self.email_label.setText(f"Email: {self.client.email}")
+        self.telegram_username_label.setText(f"Telegram username: {self.client.telegram_username}")
+
+
+        # Connects
+        self.show_password_button.clicked.connect(self.toggle_password_visibility)
+        self.delete_account_button.clicked.connect(self.delete_account)
+        self.logout_button.clicked.connect(self.logout)
+        self.create_room_button.clicked.connect(self.create_room)
+        self.join_room_button.clicked.connect(self.connect_room_cmd)
+        self.client.update_active_room.connect(self.is_joined)
+        self.room_list_widget.doubleClicked.connect(self.join_room)
+        self.client.update_room_list.connect(self.update_room_list)
+        self.client.update_username.connect(self.update_username)
+        self.client.update_email.connect(self.update_email)
+        # self.telegram_username_submit_button.clicked.connect(self.client ADDDDD)
+
+    def update_username(self):
+        self.username_label.setText(f"Username: {self.client.username}")
+
+    def update_email(self):
+        self.email_label.setText(f"Email: {self.client.email}")
+
+    def create_room(self):
+        room_name = self.create_room_name_input.text()
+        self.client.send_create_room(room_name)
+
+    def connect_room_cmd(self):
+        room_name = self.join_room_name_input.text()
+        self.client.send_join_room(room_name)
+
+    def is_joined(self):
+            self.parent().setCurrentIndex(3)
+            self.join_room_name_input.clear()
+            self.create_room_name_input.clear()
+
+    def join_room(self):
+
+        room_name = self.room_list_widget.selectedItems()[0].text()
+
+        print(room_name)
+        self.client.send_join_room(room_name)
+
+    def update_room_list(self, room_name_list):
+        self.room_list_widget.clear()
+        self.room_list_widget.addItems(room_name_list)
+
+    def logout(self):
+        self.client.send_logout_user()
+        self.parent().setCurrentIndex(0)
+
+    def delete_account(self):
+        # self.client.()
+        pass
+
+    def toggle_password_visibility(self):
+        self.is_password_visible = not self.is_password_visible
+        if self.is_password_visible:
+            self.password_label.setText(f"Password: {self.client.password}")
+            self.show_password_button.setText("hide password")
+        else:
+            self.password_label.setText("Password: ")
+            self.show_password_button.setText("show password")
 
 class UserInfoWidget(QWidget):
     def __init__(self, client: Client = None):
@@ -480,8 +551,6 @@ class WrapperVideoWidget(QWidget):
     #         self.current_video_index = index
     #         self.video_widgets[self.current_video_index].show()
 
-
-
 class WrapperScreenWidget(QWidget):
     def __init__(self, client: Client):
         super().__init__()
@@ -640,27 +709,25 @@ class MainUserPageWidget(QWidget):
         layout.addWidget(room_widget)
         self.setLayout(layout)
 
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self, client: Client):
         super().__init__()
         self.client = client
         self.stacked_widget = QStackedWidget()
 
-        login_widget = LoginWidget(self.stacked_widget, self.client)
-        register_widget = RegisterWidget(self.stacked_widget, self.client)
+        login_widget = LoginWidget(self.client)
+        register_widget = RegisterWidget(self.client)
         main_room_page_widget = MainRoomPageWidget(self.stacked_widget, self.client)
-        main_user_page_widget = MainUserPageWidget(self.stacked_widget, self.client)
-
+        # main_user_page_widget = MainUserPageWidget(self.stacked_widget, self.client)
+        account_widget = AccountWidget(self.client)
 
         self.stacked_widget.addWidget(login_widget)
         self.stacked_widget.addWidget(register_widget)
-        self.stacked_widget.addWidget(main_user_page_widget)
+        self.stacked_widget.addWidget(account_widget)
         self.stacked_widget.addWidget(main_room_page_widget)
+        # self.stacked_widget.addWidget(main_user_page_widget)
 
-        layout = QHBoxLayout()
-        layout.addWidget(self.stacked_widget)
-
-        self.setLayout(layout)
+        self.setCentralWidget(self.stacked_widget)
 
 
 if __name__ == '__main__':

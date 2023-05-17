@@ -1,6 +1,3 @@
-
-
-
 class User:
     def __init__(self, user_id=None, username=None, password=None, email=None, active_client=None):
         self._user_id = user_id
@@ -10,6 +7,7 @@ class User:
         self._room_list = []
         self._active_room = None
         self._active_client = active_client
+        self.telegram_token = None
         # Flags
         self._is_screen_stream = False
         self._is_voice_stream = False
